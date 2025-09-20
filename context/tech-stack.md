@@ -4,6 +4,7 @@
 
 **GitHub Repository:** https://github.com/77elements/noor
 **License:** MIT License (chosen for maximum adoption and Nostr ecosystem compatibility)
+**Development Server:** http://localhost:3000/ (Vite dev server)
 
 ## Core Technology Decisions & Rationale
 
