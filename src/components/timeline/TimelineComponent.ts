@@ -104,10 +104,10 @@ export class TimelineComponent {
 
     try {
       // First connect to relays
-      await this.nostrClient.connectToReadRelays();
+      await this.nostrClient.connectToRelays();
 
       // Fetch user's follow list
-      this.followingPubkeys = await this.nostrClient.fetchFollowList(this.userPubkey);
+      this.followingPubkeys = await this.nostrClient.getUserFollowing(this.userPubkey);
 
       // Add user's own pubkey to the list
       this.followingPubkeys.push(this.userPubkey);

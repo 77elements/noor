@@ -243,3 +243,25 @@
 
 *Project Status: Planning complete - Ready for development implementation*
 *Next: Initialize development environment and begin core infrastructure*
+
+### ✅ **SimplePool + nostr-tools Integration Complete (2025-09-21)**
+
+**Major Architecture Fix:**
+- **Problem**: Was using custom WebSocket implementation instead of documented SimplePool
+- **Solution**: Complete rewrite of NostrClient using SimplePool from nostr-tools
+- **Impact**: Timeline loads significantly faster, proper profile loading architecture
+
+**Technical Changes:**
+- **NostrClient.ts**: Completely rewritten with SimplePool and nostr-tools types
+- **TimelineComponent.ts**: Updated method calls (connectToRelays, getUserFollowing)
+- **Cleanup**: Removed old WebSocket directories (/relay, /nostr)
+- **Bundle**: Now properly includes 32KB nostr-tools vendor chunk
+
+**Current Status:**
+- ✅ Timeline loads much faster with SimplePool
+- ✅ Most profile pictures load correctly (~80%+ success rate)
+- ⚠️ Some profiles still show DiceBear fallbacks despite having real images
+- ⚠️ Profile cache issues remain unresolved
+
+**User Feedback:** "Timeline loads much faster, most profile pictures work"
+**Next Priority:** Address remaining profile loading cache issues

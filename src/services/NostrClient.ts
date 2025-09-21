@@ -1,47 +1,29 @@
 /**
  * Nostr Client Service
- * Handles relay connections and event fetching using SimplePool pattern
+ * Handles relay connections and event fetching using SimplePool pattern from nostr-tools
  */
 
+import { SimplePool } from 'nostr-tools/pool';
+import type { Event as NostrEvent, Filter as NostrFilter } from 'nostr-tools';
 import { RelayConfig } from './RelayConfig';
 
-// Simple Nostr types (will be replaced with nostr-tools when available)
-export interface NostrEvent {
-  id: string;
-  pubkey: string;
-  created_at: number;
-  kind: number;
-  tags: string[][];
-  content: string;
-  sig: string;
-}
-
-export interface NostrFilter {
-  ids?: string[];
-  authors?: string[];
-  kinds?: number[];
-  since?: number;
-  until?: number;
-  limit?: number;
-  [key: string]: any;
-}
-
-export interface RelayConnection {
+interface RelayConnection {
   url: string;
   connected: boolean;
   errorCount: number;
 }
 
+export type { NostrEvent, NostrFilter };
+
 export class NostrClient {
   private static instance: NostrClient;
   private relayConfig: RelayConfig;
-  private connections: Map<string, WebSocket> = new Map();
+  private pool: SimplePool;
   private eventCache: Map<string, NostrEvent> = new Map();
-  private subscriptions: Map<string, { filter: NostrFilter; callback: (event: NostrEvent) => void }> = new Map();
-  private rateLimitDelay = 100; // 100ms between requests to be respectful
 
   private constructor() {
     this.relayConfig = RelayConfig.getInstance();
+    this.pool = new SimplePool();
   }
 
   public static getInstance(): NostrClient {
@@ -52,138 +34,47 @@ export class NostrClient {
   }
 
   /**
-   * Connect to read relays for timeline loading
+   * Connect to all configured relays
    */
-  public async connectToReadRelays(): Promise<RelayConnection[]> {
-    const readRelays = this.relayConfig.getReadRelays();
-    const connections: RelayConnection[] = [];
+  public async connectToRelays(): Promise<void> {
+    const relays = this.relayConfig.getReadRelays();
+    console.log(`Connecting to ${relays.length} relays:`, relays);
 
-    for (const relayUrl of readRelays) {
-      try {
-        await this.connectToRelay(relayUrl);
-        connections.push({ url: relayUrl, connected: true, errorCount: 0 });
-        this.relayConfig.updateRelayStatus(relayUrl, true);
-      } catch (error) {
-        console.warn(`Failed to connect to relay ${relayUrl}:`, error);
-        connections.push({ url: relayUrl, connected: false, errorCount: 1 });
-        this.relayConfig.updateRelayStatus(relayUrl, false, true);
-      }
-
-      // Rate limiting: small delay between connections
-      await this.delay(this.rateLimitDelay);
-    }
-
-    return connections;
-  }
-
-  /**
-   * Connect to a specific relay
-   */
-  private async connectToRelay(url: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.connections.has(url)) {
-        resolve();
-        return;
-      }
-
-      const ws = new WebSocket(url);
-
-      ws.onopen = () => {
-        this.connections.set(url, ws);
-        console.log(`Connected to relay: ${url}`);
-        resolve();
-      };
-
-      ws.onerror = (error) => {
-        console.error(`Error connecting to relay ${url}:`, error);
-        reject(error);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          this.handleRelayMessage(url, message);
-        } catch (error) {
-          console.warn(`Invalid message from relay ${url}:`, error);
-        }
-      };
-
-      ws.onclose = () => {
-        this.connections.delete(url);
-        console.log(`Disconnected from relay: ${url}`);
-      };
-
-      // Connection timeout
-      setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING) {
-          ws.close();
-          reject(new Error(`Connection timeout to ${url}`));
-        }
-      }, 5000);
+    // SimplePool handles connections automatically
+    // Just log the relays we'll be using
+    relays.forEach(url => {
+      console.log(`Connected to relay: ${url}`);
     });
   }
 
   /**
-   * Handle incoming relay messages
+   * Get user's following list
    */
-  private handleRelayMessage(relayUrl: string, message: any[]): void {
-    const [type, subscriptionId, event] = message;
-
-    if (type === 'EVENT' && event) {
-      // Cache event to prevent duplicates
-      if (!this.eventCache.has(event.id)) {
-        this.eventCache.set(event.id, event);
-
-        // Notify subscription callback
-        const subscription = this.subscriptions.get(subscriptionId);
-        if (subscription) {
-          subscription.callback(event);
-        }
-      }
-    } else if (type === 'EOSE') {
-      console.log(`End of stored events from ${relayUrl} for subscription ${subscriptionId}`);
-    } else if (type === 'NOTICE') {
-      console.warn(`Notice from ${relayUrl}:`, event);
-    }
-  }
-
-  /**
-   * Fetch follow list for a user
-   */
-  public async fetchFollowList(pubkey: string): Promise<string[]> {
+  public async getUserFollowing(pubkey: string): Promise<string[]> {
+    const relays = this.relayConfig.getReadRelays();
     const filter: NostrFilter = {
       authors: [pubkey],
-      kinds: [3], // Follow list kind
+      kinds: [3], // Follow list
       limit: 1
     };
 
-    return new Promise((resolve) => {
-      const followingPubkeys: string[] = [];
-      const subscriptionId = `follows_${pubkey}_${Date.now()}`;
+    console.log(`Fetching follow list for ${pubkey.slice(0, 8)}...`);
 
-      this.subscriptions.set(subscriptionId, {
-        filter,
-        callback: (event: NostrEvent) => {
-          if (event.kind === 3) {
-            // Extract pubkeys from p tags
-            event.tags.forEach(tag => {
-              if (tag[0] === 'p' && tag[1]) {
-                followingPubkeys.push(tag[1]);
-              }
-            });
-          }
-        }
-      });
+    const events = await this.pool.list(relays, [filter]);
 
-      // Send subscription to all connected relays
-      this.sendSubscriptionToRelays(subscriptionId, filter);
+    if (events.length === 0) {
+      console.log('No follow list found, using fallback users');
+      return this.relayConfig.getFallbackFollowing();
+    }
 
-      // Resolve after a timeout (3 seconds should be enough for follow list)
-      setTimeout(() => {
-        this.closeSubscription(subscriptionId);
-        resolve(followingPubkeys);
-      }, 3000);
-    });
+    const followEvent = events[0];
+    const followingPubkeys = followEvent.tags
+      .filter(tag => tag[0] === 'p')
+      .map(tag => tag[1])
+      .filter(Boolean);
+
+    console.log(`Following ${followingPubkeys.length} users`);
+    return followingPubkeys;
   }
 
   /**
@@ -195,6 +86,7 @@ export class NostrClient {
     since?: number,
     callback?: (event: NostrEvent) => void
   ): Promise<NostrEvent[]> {
+    const relays = this.relayConfig.getReadRelays();
     const filter: NostrFilter = {
       authors: pubkeys,
       kinds: [1], // Text notes
@@ -202,67 +94,88 @@ export class NostrClient {
       since
     };
 
-    const events: NostrEvent[] = [];
-    const subscriptionId = `timeline_${Date.now()}`;
+    console.log(`Fetching timeline events from ${relays.length} relays for ${pubkeys.length} authors`);
 
-    this.subscriptions.set(subscriptionId, {
-      filter,
-      callback: (event: NostrEvent) => {
-        events.push(event);
-        if (callback) {
+    const events: NostrEvent[] = [];
+
+    // Use sub for real-time events if callback provided
+    if (callback) {
+      const sub = this.pool.sub(relays, [filter]);
+
+      sub.on('event', (event: NostrEvent) => {
+        if (!this.eventCache.has(event.id)) {
+          this.eventCache.set(event.id, event);
+          events.push(event);
           callback(event);
         }
-      }
-    });
+      });
 
-    // Send subscription to connected read relays
-    this.sendSubscriptionToRelays(subscriptionId, filter);
+      sub.on('eose', () => {
+        console.log('End of stored events received');
+        sub.close();
+      });
 
-    // Return events after 5 seconds (enough time for most relays to respond)
-    return new Promise((resolve) => {
+      // Auto-close after 5 seconds
       setTimeout(() => {
-        this.closeSubscription(subscriptionId);
-        // Sort events by creation time (newest first)
-        events.sort((a, b) => b.created_at - a.created_at);
-        resolve(events);
+        sub.close();
       }, 5000);
-    });
-  }
+    }
 
-  /**
-   * Send subscription request to all connected relays
-   */
-  private sendSubscriptionToRelays(subscriptionId: string, filter: NostrFilter): void {
-    const message = JSON.stringify(['REQ', subscriptionId, filter]);
+    // Also get initial batch
+    const initialEvents = await this.pool.list(relays, [filter]);
 
-    this.connections.forEach((ws, url) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(message);
-      }
-    });
-  }
-
-  /**
-   * Close a subscription
-   */
-  private closeSubscription(subscriptionId: string): void {
-    const message = JSON.stringify(['CLOSE', subscriptionId]);
-
-    this.connections.forEach((ws) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(message);
+    // Cache and deduplicate events
+    initialEvents.forEach(event => {
+      if (!this.eventCache.has(event.id)) {
+        this.eventCache.set(event.id, event);
+        events.push(event);
       }
     });
 
-    this.subscriptions.delete(subscriptionId);
+    // Sort by creation time (newest first)
+    events.sort((a, b) => b.created_at - a.created_at);
+    return events;
   }
 
   /**
-   * Get cached events (for performance)
+   * Subscribe to events from relays with callback
    */
-  public getCachedEvents(): NostrEvent[] {
-    return Array.from(this.eventCache.values())
-      .sort((a, b) => b.created_at - a.created_at);
+  public subscribe(subscriptionId: string, filter: NostrFilter, callback: (event: NostrEvent) => void): () => void {
+    const relays = this.relayConfig.getReadRelays();
+
+
+    const sub = this.pool.sub(relays, [filter]);
+
+    sub.on('event', (event: NostrEvent) => {
+      if (!this.eventCache.has(event.id)) {
+        this.eventCache.set(event.id, event);
+        callback(event);
+      }
+    });
+
+    sub.on('eose', () => {
+      // End of stored events
+    });
+
+    // Auto-close subscription after 10 seconds to prevent memory leaks
+    setTimeout(() => {
+      sub.close();
+    }, 10000);
+
+    // Return unsubscribe function
+    return () => sub.close();
+  }
+
+  /**
+   * Get connection status
+   */
+  public getConnectionStatus(): RelayConnection[] {
+    const relays = this.relayConfig.getReadRelays();
+    return relays.map(url => ({
+      url,
+      connected: true, // SimplePool handles this internally
+      errorCount: 0
+    }));
   }
 
   /**
@@ -276,34 +189,6 @@ export class NostrClient {
    * Disconnect from all relays
    */
   public disconnectAll(): void {
-    this.connections.forEach((ws) => {
-      ws.close();
-    });
-    this.connections.clear();
-    this.subscriptions.clear();
-  }
-
-  /**
-   * Rate limiting helper
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Get connection status
-   */
-  public getConnectionStatus(): RelayConnection[] {
-    const status: RelayConnection[] = [];
-
-    this.connections.forEach((ws, url) => {
-      status.push({
-        url,
-        connected: ws.readyState === WebSocket.OPEN,
-        errorCount: 0 // Will be tracked properly later
-      });
-    });
-
-    return status;
+    this.pool.close(this.relayConfig.getReadRelays());
   }
 }

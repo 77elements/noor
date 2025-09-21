@@ -25,8 +25,9 @@ export class UserProfileService {
   private static instance: UserProfileService;
   private profileCache: Map<string, UserProfile> = new Map();
   private nostrClient: NostrClient;
-  private fetchingProfiles: Set<string> = new Set();
+  private fetchingProfiles: Map<string, Promise<UserProfile>> = new Map();
   private storageKey = 'noornote_profile_cache';
+  private profileUpdateCallbacks: Map<string, Set<(profile: UserProfile) => void>> = new Map();
 
   private constructor() {
     this.nostrClient = NostrClient.getInstance();
@@ -53,17 +54,19 @@ export class UserProfileService {
       return cached;
     }
 
-    // If already fetching, return cached or default
+    // If already fetching, wait for that request
     if (this.fetchingProfiles.has(pubkey)) {
-      return cached || this.getDefaultProfile(pubkey);
+      return await this.fetchingProfiles.get(pubkey)!;
     }
 
-    // Fetch profile from relays
-    this.fetchingProfiles.add(pubkey);
+    // Start new fetch
+    const fetchPromise = this.fetchProfileFromRelays(pubkey);
+    this.fetchingProfiles.set(pubkey, fetchPromise);
 
     try {
-      const profile = await this.fetchProfileFromRelays(pubkey);
+      const profile = await fetchPromise;
       this.profileCache.set(pubkey, profile);
+      this.notifyProfileUpdate(pubkey, profile);
       this.saveToStorage();
       return profile;
     } catch (error) {
@@ -114,12 +117,7 @@ export class UserProfileService {
    * Get profile picture URL with fallback
    */
   public getProfilePicture(profile: UserProfile): string {
-    if (profile.picture?.trim()) {
-      return profile.picture.trim();
-    }
-
-    // Generate a simple avatar based on pubkey
-    return this.generateDefaultAvatar(profile.pubkey);
+    return profile.picture || '';
   }
 
   /**
@@ -180,12 +178,9 @@ export class UserProfileService {
 
       const subscriptionId = `profile_${pubkey}_${Date.now()}`;
 
-      // Set up subscription callback
-      const originalSend = this.nostrClient.sendSubscriptionToRelays;
-
-      // Override to handle profile events
-      this.subscribeToProfile(subscriptionId, pubkey, (event: NostrEvent) => {
-        if (event.kind === 0 && event.pubkey === pubkey) {
+      // Subscribe to profile events
+      this.nostrClient.subscribe(subscriptionId, { authors: [pubkey], kinds: [0] }, (event: NostrEvent) => {
+        if (event.kind === 0 && event.pubkey === pubkey && !hasResponse) {
           try {
             const metadata = JSON.parse(event.content);
             Object.assign(profile, {
@@ -202,6 +197,62 @@ export class UserProfileService {
               lastUpdated: Date.now()
             });
             hasResponse = true;
+            resolve(profile);
+          } catch (error) {
+            console.warn('Failed to parse profile metadata:', error);
+            resolve(profile);
+          }
+        }
+      });
+
+      // Resolve with default profile after timeout
+      setTimeout(() => {
+        if (!hasResponse) {
+          resolve(profile);
+        }
+      }, 10000);
+    });
+  }
+
+
+  /**
+   * Fetch multiple profiles efficiently
+   */
+  private async fetchMultipleProfilesFromRelays(pubkeys: string[]): Promise<Map<string, UserProfile>> {
+    return new Promise((resolve) => {
+      const profiles = new Map<string, UserProfile>();
+      const foundPubkeys = new Set<string>();
+
+      // Initialize with default profiles
+      pubkeys.forEach(pubkey => {
+        profiles.set(pubkey, this.getDefaultProfile(pubkey));
+      });
+
+      const subscriptionId = `profiles_batch_${Date.now()}`;
+
+      // Subscribe to all profile events
+      this.nostrClient.subscribe(subscriptionId, { authors: pubkeys, kinds: [0] }, (event: NostrEvent) => {
+        if (event.kind === 0 && pubkeys.includes(event.pubkey)) {
+          try {
+            const metadata = JSON.parse(event.content);
+            const profile = profiles.get(event.pubkey) || this.getDefaultProfile(event.pubkey);
+
+            Object.assign(profile, {
+              name: metadata.name,
+              display_name: metadata.display_name,
+              username: metadata.username,
+              picture: metadata.picture,
+              about: metadata.about,
+              nip05: metadata.nip05,
+              lud06: metadata.lud06,
+              lud16: metadata.lud16,
+              website: metadata.website,
+              banner: metadata.banner,
+              lastUpdated: Date.now()
+            });
+
+            profiles.set(event.pubkey, profile);
+            foundPubkeys.add(event.pubkey);
           } catch (error) {
             console.warn('Failed to parse profile metadata:', error);
           }
@@ -210,34 +261,9 @@ export class UserProfileService {
 
       // Resolve after timeout
       setTimeout(() => {
-        resolve(profile);
-      }, 3000);
+        resolve(profiles);
+      }, 15000);
     });
-  }
-
-  /**
-   * Subscribe to profile events
-   */
-  private subscribeToProfile(subscriptionId: string, pubkey: string, callback: (event: NostrEvent) => void): void {
-    // This is a simplified version - in reality we'd need to extend NostrClient
-    // For now, we'll use a basic implementation
-    console.log(`Subscribing to profile for ${pubkey}`);
-  }
-
-  /**
-   * Fetch multiple profiles efficiently
-   */
-  private async fetchMultipleProfilesFromRelays(pubkeys: string[]): Promise<Map<string, UserProfile>> {
-    const profiles = new Map<string, UserProfile>();
-
-    // Initialize with default profiles
-    pubkeys.forEach(pubkey => {
-      profiles.set(pubkey, this.getDefaultProfile(pubkey));
-    });
-
-    // In a real implementation, this would use a batch subscription
-    // For now, we'll return the default profiles
-    return profiles;
   }
 
   /**
@@ -248,6 +274,13 @@ export class UserProfileService {
       pubkey,
       lastUpdated: Date.now()
     };
+  }
+
+  /**
+   * Get fallback avatar URL for a pubkey (disabled - most clients set defaults)
+   */
+  public getFallbackAvatar(pubkey: string): string {
+    return '';
   }
 
   /**
@@ -313,6 +346,44 @@ export class UserProfileService {
       localStorage.setItem(this.storageKey, JSON.stringify(data));
     } catch (error) {
       console.warn('Failed to save profile cache:', error);
+    }
+  }
+
+  /**
+   * Subscribe to profile updates (like nostr-react useProfile pattern)
+   */
+  public subscribeToProfile(pubkey: string, callback: (profile: UserProfile) => void): () => void {
+    if (!this.profileUpdateCallbacks.has(pubkey)) {
+      this.profileUpdateCallbacks.set(pubkey, new Set());
+    }
+
+    this.profileUpdateCallbacks.get(pubkey)!.add(callback);
+
+    // Immediately call with current profile if available
+    const currentProfile = this.profileCache.get(pubkey);
+    if (currentProfile) {
+      callback(currentProfile);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      const callbacks = this.profileUpdateCallbacks.get(pubkey);
+      if (callbacks) {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) {
+          this.profileUpdateCallbacks.delete(pubkey);
+        }
+      }
+    };
+  }
+
+  /**
+   * Notify all subscribers when profile updates
+   */
+  private notifyProfileUpdate(pubkey: string, profile: UserProfile): void {
+    const callbacks = this.profileUpdateCallbacks.get(pubkey);
+    if (callbacks) {
+      callbacks.forEach(callback => callback(profile));
     }
   }
 

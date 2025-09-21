@@ -20,6 +20,7 @@ export class NoteHeader {
   private userProfileService: UserProfileService;
   private options: Required<NoteHeaderOptions>;
   private profile: UserProfile | null = null;
+  private unsubscribeProfile?: () => void;
 
   constructor(options: NoteHeaderOptions) {
     this.userProfileService = UserProfileService.getInstance();
@@ -65,15 +66,26 @@ export class NoteHeader {
   }
 
   /**
-   * Load user profile and update display
+   * Load user profile and update display (reactive pattern like nostr-react)
    */
   private async loadProfile(): Promise<void> {
+    // Show fallback immediately
+    this.showFallbackDisplay();
+
+    // Subscribe to profile updates (reactive like useProfile hook)
+    this.unsubscribeProfile = this.userProfileService.subscribeToProfile(
+      this.options.pubkey,
+      (profile: UserProfile) => {
+        this.profile = profile;
+        this.updateDisplay();
+      }
+    );
+
+    // Trigger initial load
     try {
-      this.profile = await this.userProfileService.getUserProfile(this.options.pubkey);
-      this.updateDisplay();
+      await this.userProfileService.getUserProfile(this.options.pubkey);
     } catch (error) {
       console.warn(`Failed to load profile for note header: ${this.options.pubkey}`, error);
-      this.showFallbackDisplay();
     }
   }
 
@@ -90,12 +102,9 @@ export class NoteHeader {
 
     // Update avatar
     if (avatarImg) {
-      avatarImg.src = this.userProfileService.getProfilePicture(this.profile);
+      const imageUrl = this.userProfileService.getProfilePicture(this.profile);
+      avatarImg.src = imageUrl;
       avatarImg.alt = this.userProfileService.getDisplayName(this.profile);
-
-      avatarImg.onerror = () => {
-        avatarImg.src = this.userProfileService.getProfilePicture({ pubkey: this.options.pubkey } as UserProfile);
-      };
     }
 
     // Update display name
@@ -128,7 +137,7 @@ export class NoteHeader {
     const handle = this.element.querySelector('.note-header__handle');
 
     if (avatarImg) {
-      avatarImg.src = this.userProfileService.getProfilePicture({ pubkey: this.options.pubkey } as UserProfile);
+      avatarImg.src = '';
     }
 
     if (displayName) {
@@ -209,6 +218,10 @@ export class NoteHeader {
    * Cleanup resources
    */
   public destroy(): void {
+    // Unsubscribe from profile updates
+    if (this.unsubscribeProfile) {
+      this.unsubscribeProfile();
+    }
     this.element.remove();
   }
 
