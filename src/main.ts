@@ -1,5 +1,5 @@
 /**
- * Noor - High-Performance Nostr Web Client
+ * Noornote - High-Performance Nostr Web Client
  * Main application entry point
  */
 
@@ -19,16 +19,16 @@ async function init(): Promise<void> {
       loadingElement.remove();
     }
 
-    console.info('Noor initialized successfully');
+    console.info('Noornote initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize Noor:', error);
+    console.error('Failed to initialize Noornote:', error);
 
     // Show error message to user
     const appElement = document.getElementById('app');
     if (appElement) {
       appElement.innerHTML = `
         <div class="error-screen">
-          <h2>Failed to load Noor</h2>
+          <h2>Failed to load Noornote</h2>
           <p>Please refresh the page to try again.</p>
           <button onclick="window.location.reload()">Refresh</button>
         </div>

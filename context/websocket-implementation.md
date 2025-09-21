@@ -1,4 +1,4 @@
-# WebSocket Implementation Guide - Noor Web Client
+# WebSocket Implementation Guide - Noornote Web Client
 
 ## Implementation Overview
 

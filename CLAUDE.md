@@ -1,4 +1,4 @@
-# Noor - High-Performance Nostr Web Client
+# Noornote - High-Performance Nostr Web Client
 
 # ═══════════════════════════════════════════════════════════════
 # 🔒 CORE SYSTEM SPECIFICATIONS - NEVER MODIFY WITHOUT EXPLICIT USER REQUEST
@@ -6,7 +6,7 @@
 
 ## Project Overview & Mission
 
-**Noor** (Arabic: نور, meaning "light") is a high-performance, enterprise-grade Nostr web client designed to combine the best performance patterns from existing clients while delivering superior UX, security, and global accessibility.
+**Noornote** (Arabic: نور, meaning "light") is a high-performance, enterprise-grade Nostr web client designed to combine the best performance patterns from existing clients while delivering superior UX, security, and global accessibility.
 
 **Mission:** Create the fastest, most secure, and most user-friendly Nostr client on the web.
 
@@ -178,7 +178,7 @@
 
 ### ✅ **Completed (2025-09-20):**
 1. **Competitor Analysis**: Comprehensive research of 4 major Nostr clients
-2. **Project Structure**: Created `/Users/jev/projects/noor` with modular architecture
+2. **Project Structure**: Created `/Users/jev/projects/noornote` with modular architecture
 3. **Context System**: Modular documentation system for maintainability
    - `context/competitors.md` - Competitive analysis and benchmarks
    - `context/tech-stack.md` - Technology decisions and rationale

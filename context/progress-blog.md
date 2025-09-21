@@ -1,4 +1,4 @@
-# Development Progress Index - Noor Web Client
+# Development Progress Index - Noornote Web Client
 
 ## Overview
 

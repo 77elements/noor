@@ -1,8 +1,8 @@
-# Competitor Analysis Reference - Noor Web Client
+# Competitor Analysis Reference - Noornote Web Client
 
 ## Overview
 
-This document serves as a reference to the comprehensive competitor analysis conducted for the Noor project. The full analysis is available in the `competitor-analysis.md` file within this context directory.
+This document serves as a reference to the comprehensive competitor analysis conducted for the Noornote project. The full analysis is available in the `competitor-analysis.md` file within this context directory.
 
 ## Analyzed Competitors
 
@@ -58,7 +58,7 @@ This document serves as a reference to the comprehensive competitor analysis con
 - Memory Usage: ~45MB
 - Key Feature: Protocol compatibility
 
-## Competitive Advantages for Noor
+## Competitive Advantages for Noornote
 
 ### Performance Targets (Based on Analysis)
 - **Bundle Size**: <500KB (50% smaller than best competitor)
@@ -97,7 +97,7 @@ This document serves as a reference to the comprehensive competitor analysis con
 ## Performance Benchmarking
 
 ### Speed Ranking (Based on Research)
-1. **Noor (Target)** - <2s load, <500KB bundle
+1. **Noornote (Target)** - <2s load, <500KB bundle
 2. **Primal.net** - 1-2s load, ~600KB bundle
 3. **Jumble.social** - 2-3s load, ~800KB bundle
 4. **Gleasonator.dev** - 2-4s load, ~900KB bundle

@@ -1,6 +1,6 @@
-# Noor - High-Performance Nostr Web Client
+# Noornote - High-Performance Nostr Web Client
 
-**Noor** (Arabic: نور, meaning "light") is a high-performance, enterprise-grade Nostr web client designed to combine the best performance patterns from existing clients while delivering superior UX, security, and global accessibility.
+**Noornote** (Arabic: نور, meaning "light") is a high-performance, enterprise-grade Nostr web client designed to combine the best performance patterns from existing clients while delivering superior UX, security, and global accessibility.
 
 ## Project Status
 
@@ -106,7 +106,7 @@ Based on comprehensive analysis of Jumble.social, Primal.net, YakiHonne.com, and
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd noor
+cd noornote
 
 # Install dependencies (coming next session)
 npm install

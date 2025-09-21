@@ -1,8 +1,8 @@
-# Tech Stack - Noor Web Client
+# Tech Stack - Noornote Web Client
 
 ## Project Repository
 
-**GitHub Repository:** https://github.com/77elements/noor
+**GitHub Repository:** https://github.com/77elements/noornote
 **License:** MIT License (chosen for maximum adoption and Nostr ecosystem compatibility)
 **Development Server:** http://localhost:3000/ (Vite dev server)
 
@@ -345,7 +345,7 @@ performance.measure('relay-connect', 'relay-connect-start', 'relay-connect-end')
 - **Alpine.js**: 13KB for reactive functionality
 
 ### Current Decision Rationale:
-**Vanilla JS** remains optimal for the performance-first, bundle-size-conscious approach that differentiates Noor from competitors. Framework adoption can be reconsidered if development velocity becomes more important than performance optimization.
+**Vanilla JS** remains optimal for the performance-first, bundle-size-conscious approach that differentiates Noornote from competitors. Framework adoption can be reconsidered if development velocity becomes more important than performance optimization.
 
 ---
 

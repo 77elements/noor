@@ -1,5 +1,5 @@
 {
-  "name": "noor",
+  "name": "noornote",
   "version": "0.1.0",
   "description": "High-performance Nostr web client - Light, fast, secure",
   "type": "module",
@@ -27,13 +27,13 @@
   ],
   "author": "Alp <outreach.trend196@4wrd.cc>",
   "license": "MIT",
-  "homepage": "https://github.com/77elements/noor#readme",
+  "homepage": "https://github.com/77elements/noornote#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/77elements/noor.git"
+    "url": "https://github.com/77elements/noornote.git"
   },
   "bugs": {
-    "url": "https://github.com/77elements/noor/issues"
+    "url": "https://github.com/77elements/noornote/issues"
   },
   "devDependencies": {
     "@types/node": "^20.8.0",

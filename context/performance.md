@@ -1,4 +1,4 @@
-# Performance Strategy & Optimization - Noor Web Client
+# Performance Strategy & Optimization - Noornote Web Client
 
 ## Performance Philosophy: Speed as a Feature
 
@@ -35,7 +35,7 @@
 | **Primal** | ~600KB | 1-2s | ~30MB | Server caching |
 | **YakiHonne** | ~1200KB | 3-5s | ~60MB | Long-form content |
 | **Gleasonator** | ~900KB | 2-4s | ~45MB | Server rendering |
-| **Noor (Target)** | <500KB | <2s | <50MB | Vanilla JS |
+| **Noornote (Target)** | <500KB | <2s | <50MB | Vanilla JS |
 
 ### Key Performance Insights from Analysis:
 

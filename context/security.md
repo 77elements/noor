@@ -1,4 +1,4 @@
-# Security & Privacy Implementation - Noor Web Client
+# Security & Privacy Implementation - Noornote Web Client
 
 ## Security Philosophy: Client-Side Only, Zero Trust
 

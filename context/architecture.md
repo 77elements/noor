@@ -1,4 +1,4 @@
-# Software Architecture - Noor Web Client
+# Software Architecture - Noornote Web Client
 
 ## Architectural Philosophy: Vanilla JS Enterprise Pattern
 

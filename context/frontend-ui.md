@@ -1,4 +1,4 @@
-# Frontend UI/UX Design System - Noor Web Client
+# Frontend UI/UX Design System - Noornote Web Client
 
 ## Design Philosophy & Core Principles
 
@@ -199,7 +199,7 @@
 #### Web Components Strategy:
 ```javascript
 // Base component class
-class NoorComponent extends HTMLElement {
+class NoornoteComponent extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -230,7 +230,7 @@ class NoorComponent extends HTMLElement {
 
 **Timeline Item Component:**
 ```javascript
-class TimelineItem extends NoorComponent {
+class TimelineItem extends NoornoteComponent {
   template() {
     return `
       <style>

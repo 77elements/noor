@@ -1,4 +1,4 @@
-# Server Technology & Deployment - Noor Web Client
+# Server Technology & Deployment - Noornote Web Client
 
 ## Deployment Strategy: Static Site + CDN (Zero Sysops Required)
 

@@ -1,4 +1,4 @@
-# Critical Blocker Analysis - Noor Web Client
+# Critical Blocker Analysis - Noornote Web Client
 
 ## Overview
 
@@ -52,17 +52,17 @@ Gleasonator   → Mastodon familiarity helps but still barriers
 **Risk Level: MEDIUM** ⚠️ *(Significantly Reduced)*
 **Impact: App Reliability Perception**
 
-#### Noor's Relay Strategy - Controlled Primary + User Choice
+#### Noornote's Relay Strategy - Controlled Primary + User Choice
 **Primary Relay (Moderated):**
 - **wss://noornode.nostr1.com** - Known operator, actively moderated
 - **Quality Guaranteed:** Reliable uptime and performance
 - **Content Moderation:** Clean, curated content experience
-- **Legal Protection:** Not operated by Noor team = No legal liability
+- **Legal Protection:** Not operated by Noornote team = No legal liability
 
 **User-Controlled Secondary Relays:**
 ```javascript
-// Noor's relay architecture:
-class NoorRelayStrategy {
+// Noornote's relay architecture:
+class NoornoteRelayStrategy {
   constructor() {
     this.primaryRelay = 'wss://noornode.nostr1.com'; // Guaranteed quality
     this.userRelays = [];  // User adds their preferred relays
@@ -74,13 +74,13 @@ class NoorRelayStrategy {
   }
 
   // User has full control over additional data sources
-  // Legal liability stays with relay operators, not Noor
+  // Legal liability stays with relay operators, not Noornote
 }
 ```
 
 #### Legal & Content Responsibility Architecture
 **Clear Separation of Concerns:**
-- **Noor's Responsibility:** Client software quality and performance
+- **Noornote's Responsibility:** Client software quality and performance
 - **Relay Operators' Responsibility:** Content hosting, moderation, legal compliance
 - **Users' Responsibility:** Choice of additional relays beyond noornode
 
@@ -89,7 +89,7 @@ class NoorRelayStrategy {
 const legalProtection = {
   primaryRelay: "wss://noornode.nostr1.com - moderated, known operator",
   additionalRelays: "User-configured - user choice, user responsibility",
-  contentStorage: "External relay operators - not Noor's servers",
+  contentStorage: "External relay operators - not Noornote's servers",
   moderation: "Primary relay: moderated; Others: user choice",
   liability: "Relay operators bear content responsibility"
 };
@@ -118,11 +118,11 @@ const legalProtection = {
 **Risk Level: LOW-MEDIUM** 📉 *(Significantly Reduced)*
 **Impact: User Safety & Legal Compliance**
 
-#### Noor's Content Strategy - Moderated Primary + User Choice
+#### Noornote's Content Strategy - Moderated Primary + User Choice
 
 **Primary Relay Solution:**
 ```javascript
-// Noor's content moderation approach:
+// Noornote's content moderation approach:
 const contentStrategy = {
   primaryRelay: {
     name: "wss://noornode.nostr1.com",
@@ -138,7 +138,7 @@ const contentStrategy = {
   },
 
   legalProtection: {
-    liability: "Relay operators, not Noor team",
+    liability: "Relay operators, not Noornote team",
     contentStorage: "External servers only",
     jurisdiction: "Each relay operator handles their jurisdiction"
   }
@@ -146,7 +146,7 @@ const contentStrategy = {
 ```
 
 **Eliminated Legal Risks:**
-- **No Content Hosting:** Noor doesn't store or serve any user content
+- **No Content Hosting:** Noornote doesn't store or serve any user content
 - **No Moderation Decisions:** Relay operators make all content decisions
 - **Clear Liability:** External relay operators bear all content responsibility
 - **User Choice:** Additional relay selection is user responsibility

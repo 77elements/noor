@@ -1,4 +1,4 @@
-# Development Workflow & Standards - Noor Web Client
+# Development Workflow & Standards - Noornote Web Client
 
 ## ⛔ STRICT DEVELOPMENT PROCESS - NEVER DEVIATE!
 
