@@ -12,8 +12,9 @@
   grid-template-areas: "sidebar primary secondary";
   gap: $spacing-4;
   padding: $spacing-4;
-  min-height: 100vh;
+  height: 100vh;
   box-sizing: border-box;
+  overflow: hidden;
 
   // Responsive breakpoints
   @include desktop-down {
@@ -43,16 +44,100 @@
 .sidebar {
   grid-area: sidebar;
   min-width: 0;
+  overflow: hidden; // Sidebar stays fixed, no scroll
 }
 
 .primary-content {
   grid-area: primary;
-  min-width: 0; // Critical: allows content to shrink below natural size
-  overflow: hidden; // Prevent layout breaking
+  min-width: 0;
+  overflow-y: auto; // Independent vertical scroll
+  overflow-x: hidden;
+  height: 100%;
+
+  .content-wrapper {
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  // Custom scrollbar styling
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $color-1; // Deep purple background
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $color-2; // Medium purple bar
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: lighten($color-2, 10%);
+  }
+
+  // Firefox
+  scrollbar-width: thin;
+  scrollbar-color: $color-2 $color-1;
 }
 
 .secondary-content {
   grid-area: secondary;
-  min-width: 0; // Critical: allows content to shrink below natural size
-  overflow: hidden; // Prevent layout breaking
+  min-width: 0;
+  overflow-y: auto; // Independent vertical scroll for manual override
+  overflow-x: hidden;
+  height: 100%;
+
+  .content-wrapper {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .secondary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: $spacing-3 0;
+    border-bottom: 1px solid $color-2;
+    flex-shrink: 0;
+
+    .secondary-title h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      color: $color-5;
+    }
+
+    .secondary-user {
+      flex-shrink: 0;
+    }
+  }
+
+  .secondary-content-body {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  // Custom scrollbar styling
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $color-1; // Deep purple background
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $color-2; // Medium purple bar
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: lighten($color-2, 10%);
+  }
+
+  // Firefox
+  scrollbar-width: thin;
+  scrollbar-color: $color-2 $color-1;
 }

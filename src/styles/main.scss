@@ -24,6 +24,7 @@
 @use 'components/auth';
 @use 'components/timeline';
 @use 'components/debug-logger';
+@use 'components/user-status';
 
 // 4. Molecules - Combinations of atoms
 @use 'molecules/forms';

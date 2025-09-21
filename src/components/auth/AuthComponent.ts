@@ -7,16 +7,24 @@ import { AuthService } from '../../services/AuthService';
 import { TimelineComponent } from '../timeline/TimelineComponent';
 import { DebugLogger } from '../debug/DebugLogger';
 
+// Forward declaration to avoid circular dependency
+interface MainLayoutInterface {
+  setUserStatus(npub: string, pubkey: string): void;
+  clearUserStatus(): void;
+}
+
 export class AuthComponent {
   private element: HTMLElement;
   private authService: AuthService;
   private debugLogger: DebugLogger;
+  private mainLayout: MainLayoutInterface | null = null;
   private currentUser: { npub: string; pubkey: string } | null = null;
   private timelineComponent: TimelineComponent | null = null;
 
-  constructor() {
+  constructor(mainLayout?: MainLayoutInterface) {
     this.authService = new AuthService();
     this.debugLogger = DebugLogger.getInstance();
+    this.mainLayout = mainLayout || null;
     this.element = this.createElement();
     this.setupEventListeners();
   }
@@ -32,13 +40,6 @@ export class AuthComponent {
       // User is authenticated - show timeline
       container.innerHTML = `
         <div class="authenticated-content">
-          <div class="user-status">
-            <div class="user-info">
-              <span class="user-indicator">🟢</span>
-              <span class="user-npub">${this.currentUser.npub}</span>
-            </div>
-            <button class="logout-btn" type="button">Sign Out</button>
-          </div>
           <div class="timeline-container">
             <!-- Timeline will be mounted here -->
           </div>
@@ -91,11 +92,7 @@ export class AuthComponent {
       loginBtn.addEventListener('click', this.handleLogin.bind(this));
     }
 
-    // Logout button
-    const logoutBtn = this.element.querySelector('.logout-btn');
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', this.handleLogout.bind(this));
-    }
+    // No logout button here anymore - it's in UserStatus component
 
     // Retry detection button
     const retryBtn = this.element.querySelector('.retry-btn');
@@ -121,6 +118,12 @@ export class AuthComponent {
         // Authentication successful - store user and update UI
         this.currentUser = { npub: result.npub, pubkey: result.pubkey };
         this.debugLogger.info('Auth', 'Logged in successfully via extension');
+
+        // Update main layout user status
+        if (this.mainLayout) {
+          this.mainLayout.setUserStatus(result.npub, result.pubkey);
+        }
+
         this.updateUI();
         this.initializeTimeline();
       } else {
@@ -145,9 +148,15 @@ export class AuthComponent {
   /**
    * Handle logout
    */
-  private handleLogout(): void {
+  public handleLogout(): void {
     this.authService.signOut();
     this.currentUser = null;
+
+    // Clear main layout user status
+    if (this.mainLayout) {
+      this.mainLayout.clearUserStatus();
+    }
+
     this.updateUI();
   }
 

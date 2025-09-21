@@ -5,10 +5,13 @@
 
 import { AuthComponent } from '../auth/AuthComponent';
 import { DebugLogger } from '../debug/DebugLogger';
+import { UserStatus } from '../ui/UserStatus';
 
 export class MainLayout {
   private element: HTMLElement;
   private debugLogger: DebugLogger;
+  private userStatus: UserStatus | null = null;
+  private authComponent: any = null; // Store reference to trigger logout
 
   constructor() {
     this.element = this.createElement();
@@ -25,8 +28,9 @@ export class MainLayout {
     layout.innerHTML = `
       <aside class="sidebar">
         <div class="sidebar-content">
-          <h2>Sidebar</h2>
-          <p>Fixed width: ~120px</p>
+          <div class="sidebar-header">
+            <!-- Logo container for later -->
+          </div>
           <ul>
             <li>Home</li>
             <li>Profile</li>
@@ -47,8 +51,17 @@ export class MainLayout {
 
       <aside class="secondary-content">
         <div class="content-wrapper">
-          <h2>System Log</h2>
-          <!-- Debug Logger will be mounted here -->
+          <div class="secondary-header">
+            <div class="secondary-title">
+              <h2>System Log</h2>
+            </div>
+            <div class="secondary-user">
+              <!-- User status will be mounted here -->
+            </div>
+          </div>
+          <div class="secondary-content-body">
+            <!-- Debug Logger will be mounted here -->
+          </div>
         </div>
       </aside>
     `;
@@ -94,20 +107,69 @@ export class MainLayout {
   }
 
   /**
+   * Set user status in secondary header
+   */
+  public setUserStatus(npub: string, pubkey: string): void {
+    // Clean up existing user status
+    if (this.userStatus) {
+      this.userStatus.destroy();
+    }
+
+    // Create new user status with logout callback
+    this.userStatus = new UserStatus({
+      npub,
+      pubkey,
+      onLogout: () => this.handleLogout()
+    });
+
+    // Mount in secondary user area
+    const secondaryUser = this.element.querySelector('.secondary-user');
+    if (secondaryUser) {
+      secondaryUser.innerHTML = '';
+      secondaryUser.appendChild(this.userStatus.getElement());
+    }
+  }
+
+  /**
+   * Handle logout from UserStatus component
+   */
+  private handleLogout(): void {
+    if (this.authComponent && this.authComponent.handleLogout) {
+      // Call AuthComponent's logout method
+      this.authComponent.handleLogout();
+    }
+  }
+
+  /**
+   * Clear user status (on logout)
+   */
+  public clearUserStatus(): void {
+    if (this.userStatus) {
+      this.userStatus.destroy();
+      this.userStatus = null;
+    }
+
+    const secondaryUser = this.element.querySelector('.secondary-user');
+    if (secondaryUser) {
+      secondaryUser.innerHTML = '';
+    }
+  }
+
+  /**
    * Initialize primary content with auth component and secondary content with debug logger
    */
   private initializeContent(): void {
     // Create and mount auth component in primary content
-    const authComponent = new AuthComponent();
+    this.authComponent = new AuthComponent(this);
     const primaryContent = this.element.querySelector('.primary-content .content-wrapper');
     if (primaryContent) {
-      primaryContent.appendChild(authComponent.getElement());
+      primaryContent.appendChild(this.authComponent.getElement());
     }
 
-    // Mount debug logger in secondary content
-    const secondaryContent = this.element.querySelector('.secondary-content .content-wrapper');
-    if (secondaryContent) {
-      secondaryContent.appendChild(this.debugLogger.getElement());
+    // Mount debug logger in secondary content body
+    const secondaryBody = this.element.querySelector('.secondary-content-body');
+    if (secondaryBody) {
+      secondaryBody.appendChild(this.debugLogger.getElement());
     }
 
     // Add initial log messages
