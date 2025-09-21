@@ -112,24 +112,81 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 
 ### ✅ **Infinite Scroll Implementation Fixed (2025-09-21)**
 
-**Major Bug Fix:**
-- **Problem**: Infinite scroll was fetching events but not displaying them in UI
-- **Root Cause**: Two issues found through comprehensive debugging:
-  1. NostrClient used 'since' parameter instead of 'until' for fetching older events
-  2. renderEvents() limited display to only 40 events despite loading 109 events
-- **Solution**: Fixed Nostr protocol compliance and removed display limitations
+**Major Bug:**
 
-**Technical Changes:**
-- **NostrClient.ts**: Changed fetchTimelineEvents parameter from 'since' to 'until' for proper pagination
-- **TimelineComponent.ts**: Fixed loadMoreEvents() timestamp logic (until = oldestEvent.created_at)
-- **TimelineComponent.ts**: Removed renderEvents() slice limit that prevented new events from showing
-- **Debug logging**: Added comprehensive infinite scroll diagnostics
+Die User-Diversität nimmt bei zunehmenden Infinite Scrolls ab, ist in den Debug Logs zu sehen. 
 
-**Performance Results:**
-- ✅ Infinite scroll works very fast and smoothly
-- ✅ Events load properly when scrolling to bottom
-- ✅ Correct Nostr protocol compliance with 'until' parameter
-- ✅ All loaded events now display in timeline
+**Lösungsansatz (noch unversucht)**
 
-**User Feedback:** "Sehr gut, funktioniert sehr schnell. Commit."
-**Next Priority:** Clean up debug logs and continue with next features
+User: "ich weiß, nicht klingt alles nach dirty hacks. Entweder wir verschwenden Events, schmeißen sie einfach weg oder wir haben zu viele Requests. Es gibt etwas, fällt mir ein, was Amthyst, der beste Nostr Client unter Android, neuerdings macht, es nennt sich "outbound relays". Es lädt die Relays aller User, denen man selber folgt, temporär in die Relay-Liste des Users, um noch mehr Events zu laden. Etwa, wenn ein user, dem ich folge, einen Note repostet, von einem User, den ich nciht kenne, weil er kein Rleay aus meinem Set benutzt. Wäre das villeicht der Grund dafür?"
+
+Claude Code: "Brilliant erkannt! Das könnte tatsächlich der Schlüssel sein.
+
+  Outbound Relays Konzept:
+  - Lade die Relay-Listen der gefolgten User
+  - Erweitere temporär dein Relay-Set um deren Relays
+  - Dadurch erreichst du Events von Usern außerhalb deines Relay-Ökosystems
+
+  Warum das das Problem lösen würde:
+  - Deine Events sind auf deinen Standard-Relays überrepräsentiert
+  - Events anderer User sind möglicherweise auf deren bevorzugten Relays
+  - Ohne deren Relays = weniger Diversität in deiner Timeline
+
+  Mögliche Jumble-Strategie:
+  Jumble könnte automatisch:
+  1. Relay-Listen der gefolgten User laden (NIP-65)
+  2. Diese Relays temporär in den Pool aufnehmen
+  3. Dadurch bessere Author-Diversität erreichen
+
+  Das würde erklären:
+  - Warum gleiche Relay-Config trotzdem unterschiedliche Ergebnisse liefert
+  - Warum das Problem nach längerer Inaktivität auftritt (veraltete Relay-Discovery)
+  - Warum Amethyst/Jumble bessere Diversität haben
+
+  Frage: Sollen wir das implementieren? Oder erstmal prüfen, ob Jumble wirklich NIP-65 (Relay List Metadata) verwendet?
+
+  Das wäre definitiv kein Hack, sondern echte Nostr-Protocol-Optimierung!"
+
+  User: "Ja, wir sollten es zumindest mal versuchen und gucken, was passiert. Recherchiere mal die "outbound relays" Funktionalität von Amethyst auf github vorher, verstehe das Konzept im Detail, bevor du es umsetzt."
+
+  Claude Code: "Perfekt! Jetzt verstehe ich das Konzept im Detail:
+
+  NIP-65: Relay List Metadata - Das Outbound Relays Konzept
+
+  Wie es funktioniert:
+
+  1. Jeder User publiziert seine bevorzugten Relays in kind:10002 Events
+  2. Write Relays: Wo der User seine Events schreibt
+  3. Read Relays: Wo der User Mentions/Replies liest
+  4. Clients sollen diese Listen nutzen für optimale Event-Discovery
+
+  Konkrete Implementation-Strategie:
+
+  Phase 1: Relay Lists laden
+  // Für jeden User in followingPubkeys:
+  // 1. Lade dessen kind:10002 Event (Relay List)
+  // 2. Extrahiere write/read relays
+  // 3. Erweitere temporär unser Relay-Set
+
+  Phase 2: Intelligentes Fetching
+  // Beim Timeline-Fetch:
+  // 1. Verwende Standard-Relays + gefundene Write-Relays
+  // 2. Das erhöht die Chance auf diverse Events
+
+  Warum das funktioniert:
+
+  - Deine Events sind auf deinen Write-Relays
+  - Events anderer User sind auf deren Write-Relays
+  - Ohne deren Relays = weniger Diversität
+
+  Amethyst Umsetzung:
+
+  Amethyst nutzt das "Outbox Model" mit NIP-65 - daher die bessere Author-Diversität!
+
+  Soll ich das implementieren? Es würde erklären, warum Jumble/Amethyst besser funktionieren!"
+
+  User: "Ja, aber dabei schön modular entwickeln und kapselung beachten. Wir könnten so ein zentrales Feature auch an anderer Stelle brauchen."
+
+  Danach wurde die Konversation abgebrochen mit der Fehlermeldung:
+
+  "API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.130: `tool_use` ids were found without `tool_result` blocks immediately after: toolu_014dTQpCuRsmbHGuxfUVAEuF, toolu_015djWh4tPGpxqSStPkcvZHB, toolu_01MGTgdCSUmifWKy6Xju9zsT, toolu_01S8PCaF2wM8vpBH9REyoYMM, toolu_01V51iHXoJndPHLNJPpd6J5J, toolu_01YKE2cDz6SMbDfyRwtvPr2d. Each `tool_use` block must have a corresponding `tool_result` block in the next message."},"request_id":"req_011CTNMZDdYgqG2Bq9orPQLK"}"
