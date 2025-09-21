@@ -7,38 +7,12 @@
 // Color Palette - Noornote Brand Colors
 // ========================================
 
-// Brand Colors (Core Palette)
-$color-1: #0f0d23; // Deep Purple
-$color-2: #1a1930; // Medium Purple
-$color-3: #9b79b9; // Light Purple
-$color-4: #dc85ad; // Pink
-$color-5: #ede2da; // Light Peach
-
-// Primary Colors (Based on Brand)
-$color-primary: $color-2;
-$color-primary-light: $color-3;
-$color-primary-dark: $color-1;
-
-// Accent Colors
-$color-accent: $color-4;
-$color-accent-light: $color-5;
-$color-accent-dark: darken($color-4, 15%);
-
-// Color Variants (Light/Dark variations of brand colors)
-$color-1-light: lighten($color-1, 10%); // #5e3b6b
-$color-1-dark: darken($color-1, 10%);   // #3e1a4b
-
-$color-2-light: lighten($color-2, 10%); // #7d5e9d
-$color-2-dark: darken($color-2, 10%);   // #5d3e7d
-
-$color-3-light: lighten($color-3, 10%); // #ab89c9
-$color-3-dark: darken($color-3, 10%);   // #8b69a9
-
-$color-4-light: lighten($color-4, 10%); // #f5b0d0
-$color-4-dark: darken($color-4, 10%);   // #f190b0
-
-$color-5-light: lighten($color-5, 5%);  // #fdefe4
-$color-5-dark: darken($color-5, 10%);   // #fbcfc4
+// Brand Colors (Core Palette - ONLY these 5 colors)
+$color-1: #0f0d23; // Deep Purple (backgrounds)
+$color-2: #1a1930; // Medium Purple (surfaces)
+$color-3: #9b79b9; // Light Purple (accent - sparingly)
+$color-4: #dc85ad; // Pink (interactive elements only)
+$color-5: #ede2da; // Light Peach (text)
 
 // Neutral Colors (Light Theme)
 $color-white: #ffffff;
@@ -53,22 +27,11 @@ $color-gray-700: #334155;
 $color-gray-800: #1e293b;
 $color-gray-900: #0f172a;
 
-// Semantic Colors
+// Semantic Colors (only base colors, no variants)
 $color-success: #10b981;
-$color-success-light: #34d399;
-$color-success-dark: #059669;
-
 $color-warning: #f59e0b;
-$color-warning-light: #fbbf24;
-$color-warning-dark: #d97706;
-
 $color-error: #ef4444;
-$color-error-light: #f87171;
-$color-error-dark: #dc2626;
-
 $color-info: #3b82f6;
-$color-info-light: #60a5fa;
-$color-info-dark: #2563eb;
 
 // ========================================
 // Light Theme Colors

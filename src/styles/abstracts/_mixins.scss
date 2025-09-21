@@ -3,6 +3,8 @@
  * Common patterns and utilities
  */
 
+@use 'variables' as *;
+
 // ========================================
 // Theme Mixins
 // ========================================
@@ -248,11 +250,11 @@
 
 // Button variants
 @mixin button-primary {
-  background-color: $color-primary;
-  color: $color-white;
+  background-color: $color-4;
+  color: $color-1;
 
   &:hover:not(:disabled) {
-    background-color: $color-primary-dark;
+    opacity: 0.8;
   }
 }
 
@@ -299,7 +301,7 @@
   &:focus {
     outline: none;
     border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 3px rgba($color-primary, 0.1);
+    box-shadow: 0 0 0 3px rgba($color-4, 0.1);
   }
 
   &:disabled {

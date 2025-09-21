@@ -3,6 +3,9 @@
  * Based on modern reset principles
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 // Box sizing reset
 *,
 *::before,

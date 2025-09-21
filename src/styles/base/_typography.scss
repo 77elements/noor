@@ -3,6 +3,9 @@
  * Consistent typography across the application
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 // Heading styles
 h1 {
   @include heading-xl;
@@ -178,7 +181,7 @@ blockquote {
   font-size: $font-size-lg;
   line-height: $line-height-relaxed;
   color: var(--color-text-secondary);
-  border-left: 4px solid $color-primary;
+  border-left: 4px solid $color-4;
   padding-left: $spacing-4;
   margin: $spacing-6 0;
   font-style: italic;

@@ -3,6 +3,9 @@
  * Navigation and user info
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 .sidebar {
   @include card-base;
   padding: $spacing-4;
@@ -26,7 +29,7 @@
 .sidebar h2 {
   font-size: $font-size-lg;
   margin-bottom: $spacing-4;
-  color: $color-primary;
+  color: $color-5;
 
   @include desktop-down {
     display: none; // Hide text on smaller screens

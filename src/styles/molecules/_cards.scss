@@ -3,6 +3,9 @@
  * Content containers and post items
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 // Base content wrapper
 .content-wrapper {
   height: 100%;

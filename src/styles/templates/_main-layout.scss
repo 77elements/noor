@@ -3,6 +3,9 @@
  * CSS Grid-based 3-column layout: Sidebar + Primary + Secondary
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 .main-layout {
   display: grid;
   grid-template-columns: $sidebar-width 1fr 1fr;

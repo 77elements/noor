@@ -3,11 +3,14 @@
  * CSS Grid-based 3-column layout: Sidebar + Primary + Secondary
  */
 
+import { AuthComponent } from '../auth/AuthComponent';
+
 export class MainLayout {
   private element: HTMLElement;
 
   constructor() {
     this.element = this.createElement();
+    this.initializeContent();
   }
 
   /**
@@ -35,22 +38,7 @@ export class MainLayout {
 
       <main class="primary-content">
         <div class="content-wrapper">
-          <h2>Primary Content</h2>
-          <p>50% width of main container</p>
-          <div class="timeline-placeholder">
-            <div class="post-item">
-              <h4>Post 1</h4>
-              <p>This is a sample post in the primary timeline...</p>
-            </div>
-            <div class="post-item">
-              <h4>Post 2</h4>
-              <p>Another post with some content...</p>
-            </div>
-            <div class="post-item">
-              <h4>Post 3</h4>
-              <p>More timeline content here...</p>
-            </div>
-          </div>
+          <!-- Content will be dynamically updated based on auth state -->
         </div>
       </main>
 
@@ -117,6 +105,18 @@ export class MainLayout {
     const secondary = this.element.querySelector('.secondary-content .content-wrapper');
     if (secondary) {
       secondary.innerHTML = content;
+    }
+  }
+
+  /**
+   * Initialize primary content with auth component
+   */
+  private initializeContent(): void {
+    // Create and mount auth component in primary content
+    const authComponent = new AuthComponent();
+    const primaryContent = this.element.querySelector('.primary-content .content-wrapper');
+    if (primaryContent) {
+      primaryContent.appendChild(authComponent.getElement());
     }
   }
 

@@ -3,6 +3,9 @@
  * Common utility classes for spacing, display, etc.
  */
 
+@use 'variables' as *;
+@use 'mixins' as *;
+
 // Spacing utilities
 .m-0 { margin: 0; }
 .m-1 { margin: $spacing-1; }

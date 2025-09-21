@@ -11,6 +11,12 @@
 - **Event-Driven Communication**: Components communicate via custom events
 - **Immutable State**: Functional state updates with immutability
 
+**🔥 CRITICAL PRINCIPLE: App.ts Stays Minimal**
+- **App.ts is ONLY a coordination layer**: Glues components together, nothing more
+- **All business logic belongs in components**: Each component manages its own state and behavior
+- **No UI logic in App.ts**: Components handle their own rendering and user interactions
+- **Example**: Authentication logic belongs in AuthComponent, not App.ts or MainLayout.ts
+
 **No Framework Philosophy:**
 - **Zero Runtime Dependencies**: Pure JavaScript with minimal build-time dependencies
 - **Web Standards Compliance**: Built on standard web APIs

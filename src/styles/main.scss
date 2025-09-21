@@ -1,44 +1,44 @@
 /**
  * Noornote - Main Sass Entry Point
- * Atomic Design Architecture
+ * Atomic Design Architecture - Modern @use syntax
  */
 
-// 1. Abstracts - Variables, functions, mixins
-@import 'abstracts/variables';
-@import 'abstracts/mixins';
-@import 'abstracts/functions';
+// 1. Abstracts - Variables, functions, mixins (load first)
+@use 'abstracts/variables' as *;
+@use 'abstracts/functions' as *;
+@use 'abstracts/mixins' as *;
 
 // 2. Base - Reset, typography, base elements
-@import 'base/reset';
-@import 'base/typography';
-@import 'base/base';
+@use 'base/reset';
+@use 'base/typography';
+@use 'base/base';
 
 // 3. Atoms - Smallest UI components
-@import 'atoms/buttons';
-@import 'atoms/inputs';
-@import 'atoms/icons';
-@import 'atoms/labels';
-@import 'atoms/links';
+@use 'atoms/buttons';
+@use 'atoms/inputs';
+@use 'atoms/icons';
+@use 'atoms/labels';
+@use 'atoms/links';
 
 // 4. Molecules - Combinations of atoms
-@import 'molecules/forms';
-@import 'molecules/cards';
-@import 'molecules/navigation';
-@import 'molecules/media';
+@use 'molecules/forms';
+@use 'molecules/cards';
+@use 'molecules/navigation';
+@use 'molecules/media';
 
 // 5. Organisms - Complex UI sections
-@import 'organisms/header';
-@import 'organisms/sidebar';
-@import 'organisms/timeline';
-@import 'organisms/footer';
+@use 'organisms/header';
+@use 'organisms/sidebar';
+@use 'organisms/timeline';
+@use 'organisms/footer';
 
 // 6. Templates - Page-level layouts
-@import 'templates/main-layout';
-@import 'templates/profile-layout';
+@use 'templates/main-layout';
+@use 'templates/profile-layout';
 
 // 7. Pages - Specific page overrides
-@import 'pages/home';
-@import 'pages/profile';
+@use 'pages/home';
+@use 'pages/profile';
 
 // 8. Utilities - Helper classes
-@import 'abstracts/utilities';
+@use 'abstracts/utilities';
