@@ -2,29 +2,6 @@
 
 ## Design Philosophy & Core Principles
 
-### Performance-First Design
-**Every UI decision optimized for speed and efficiency**
-- **Minimal DOM**: Reduce element count for faster rendering
-- **CSS-only Animations**: No JavaScript animation libraries
-- **Lazy Loading**: Load UI components only when needed
-- **Virtual Scrolling**: Handle large timelines efficiently
-- **Critical Path**: Inline critical CSS, defer non-essential styles
-
-### Accessibility-First Approach
-**WCAG 2.1 AA compliance as minimum standard**
-- **Semantic HTML**: Proper element structure for screen readers
-- **Keyboard Navigation**: Full functionality without mouse
-- **Focus Management**: Visible focus indicators and logical tab order
-- **Color Contrast**: 4.5:1 minimum for normal text, 3:1 for large text
-- **Motion Preferences**: Respect prefers-reduced-motion
-
-### Mobile-First Responsive Design
-**Progressive enhancement from mobile to desktop**
-- **Touch-Friendly**: 44px minimum touch targets
-- **Thumb Navigation**: Critical actions within thumb reach
-- **One-Handed Use**: Primary functions accessible with one hand
-- **Network Awareness**: Graceful degradation on slow connections
-
 ## Visual Design System
 
 ### Color Palette

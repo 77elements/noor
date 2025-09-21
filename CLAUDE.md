@@ -12,47 +12,69 @@
 
 **Target Users:** Nostr power users, newcomers needing smooth onboarding, privacy-conscious users, global users behind VPNs/firewalls.
 
-## Technical Architecture Overview
+## ⛔ STRICT DEVELOPMENT PROCESS - NEVER DEVIATE!
+
+### General Philosophy
+Treat and implement this app at an enterprise level, like an experienced senior developer would. No dirty hacks, no half-baked "quick fixes." Always pay attention to architecture with strong modularity and proper encapsulation of functionality. Do not suddenly introduce major changes to core mechanisms (such as caching). You are not just coding the current feature, you are working on a small part of an app that will grow to be very large and complex later on (for example, with an addon or extension system and multiple extensions that could fundamentally change the app's purpose). Write code that is modular, resource-efficient, and maintainable.
+
+So, whenever you implement a function, ask yourself first: "Could this function also be useful in another component?" and "where is the right place for this function to meet modularization and encapsulation standards?".
+If you are not sure, ask the user. If you do not get an answer, it is better to assume yes than no. The idea is to avoid cramming everything messily in one place instead of keeping things modular.
+
+### Step 1: Claude Codes (Build-Ready)
+- Implement feature with modular architecture and foresight
+- Code must be clean, documented, and following all established patterns
+- Always run `npm run build` - MUST succeed without errors
+- TypeScript compilation MUST pass with zero errors
+
+### Step 2: User Tests (Real-World Validation)
+- User opens browser to localhost:3000 and thoroughly examines the feature
+- User tests all functionality, edge cases, and interactions
+- User provides explicit feedback on feature quality and completeness
+
+### Step 3: User Approval (Commit Gate)
+- **ONLY** when user explicitly says "feature is ok" or "commit" or similar approval
+- **THEN AND ONLY THEN** may Claude create a commit
+- **NO COMMITS WITHOUT EXPLICIT USER APPROVAL - EVER!**
+
+### Step 4: Commit (After Approval Only)
+- Use mandatory commit format with ✅ TESTED tags
+- Document what user tested and approved
+- Reference user's exact approval words in commit message
+- **NEVER INSERT CLAUDE CODE SIGNATURE INTO COMMIT MESSAGES!**
+- If the user says "Commit," then document your latest development status in CLAUDE.md at the very bottom under "# 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY." Always commit all the changes using the format `git add . && git commit -m "[your commit message]"` in one line. And don't forget: never add a Claude signature to the commit message!
+
+### Step 5: Research Before Guessing
+- If you are not sure about something, feel free to look it up online
+- I'd much rather you research first instead of guessing for hours and still not getting to the point
+
+## Technical Notes
 
 **Core Technology Stack:**
-- **Framework:** Vanilla JavaScript (Zero framework overhead)
+- **Framework:** Vanilla JavaScript (No SPA frameworks) + SimplePool + nostr-tools libraries. Use these libs whenever possible for performance purposes
 - **Build:** Vite + Rollup with aggressive optimization
-- **Styling:** Modern CSS3 with CSS Variables
+- **Styling:** Modern CSS3 with SASS and CSS Variables
 - **Bundle Target:** < 500KB gzipped (50% smaller than competitors)
 
 **Performance Strategy:**
 - **Multi-layer Caching:** Memory + IndexedDB + Service Worker
 - **SimplePool Pattern:** Optimized relay connection management
 - **Client-side Search:** FlexSearch for instant search
-- **VPN Optimization:** Global accessibility and privacy focus
 
-**Detailed Technical Documentation:**
-- **Tech Stack Details:** See `context/tech-stack.md`
-- **Performance Strategy:** See `context/performance.md`
-- **Competitive Analysis:** See `context/competitors.md`
+### Project Repository
 
-## Development Workflow & Standards
+**GitHub Repository:** https://github.com/77elements/noornote
+**License:** MIT License (chosen for maximum adoption and Nostr ecosystem compatibility)
+**Development Server:** http://localhost:3000/ (Vite dev server)
 
-**Strict 5-Phase Development Process:**
-1. **Code Implementation** - Clean, documented, TypeScript-compliant code
-2. **Real-World Testing** - User browser testing across platforms
-3. **User Approval Gate** - Explicit user approval required
-4. **Commit Process** - Mandatory format with ✅ TESTED tags
-5. **Research First** - Look up standards before implementation
-6. **Commit Rules** - If the user says "Commit," then document your latest development status in the progress-blog.md . Always commit all the changes using the 'format git add . && git commit -m "[your commit message]"' in one line. And don’t forget: never add a Claude signature to the commit message!
+### Screenshot Workflow
+- **Default Reference**: `screenshots/screenshot.png` - current app state
+- **User Commands**: "siehe Screenshot" = `screenshots/screenshot.png`
 
-**Quality Requirements:**
-- **Bundle Size**: < 500KB gzipped
-- **Performance**: 95+ Lighthouse score
-- **Compatibility**: Modern browsers with progressive enhancement
-- **Testing**: 90%+ code coverage
+### Devblog
 
-**Detailed Workflow Documentation:**
-- **Complete Workflow:** See `context/workflow.md`
-- **Git Standards:** See `context/workflow.md#git-workflow`
-- **Testing Strategy:** See `context/workflow.md#testing`
+At the end of every session, we add a daily entry into the devblog/ about our progress. It's organized in monthly md-Files. Keep those entry short and on-point.
 
-## Security & Privacy Standards
+### Security & Privacy Standards
 
 **Client-Side Security Model:**
 - **Zero Server Dependencies** - All processing client-side
@@ -65,7 +87,7 @@
 - **Privacy Implementation:** See `context/security.md#privacy`
 - **VPN Support:** See `context/security.md#vpn-tor`
 
-## Application Architecture
+### Application Architecture
 
 **Modular Vanilla JS Architecture:**
 - **Components**: UI components with Web Components
@@ -74,12 +96,116 @@
 - **State**: Universal state management without framework
 - **Progressive Enhancement**: Works without JavaScript
 
-**Detailed Architecture Documentation:**
-- **Complete Architecture:** See `context/architecture.md`
-- **Component System:** See `context/architecture.md#components`
-- **State Management:** See `context/architecture.md#state`
+#### Core Architecture Principles
 
-## UI/UX Design System
+**🔥 CRITICAL PRINCIPLE: App.ts Stays Minimal**
+- **App.ts is ONLY a coordination layer**: Glues components together, nothing more
+- **All business logic belongs in components**: Each component manages its own state and behavior
+- **No UI logic in App.ts**: Components handle their own rendering and user interactions
+- **Example**: Authentication logic belongs in AuthComponent, not App.ts or MainLayout.ts
+
+#### High-Level Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Browser Environment                       │
+├─────────────────────────────────────────────────────────────┤
+│  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐  │
+│  │   UI Layer    │  │  State Layer  │  │  Service Layer  │  │
+│  │               │  │               │  │                 │  │
+│  │ - Components  │  │ - Stores      │  │ - Nostr Client  │  │
+│  │ - Views       │←→│ - Actions     │←→│ - Relay Manager │  │
+│  │ - Events      │  │ - Selectors   │  │ - Cache Manager │  │
+│  └───────────────┘  └───────────────┘  └─────────────────┘  │
+│           ↑                   ↑                    ↓        │
+│  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐  │
+│  │ Helper Layer  │  │  Types Layer  │  │ External APIs   │  │
+│  │               │  │               │  │                 │  │
+│  │ - Utilities   │  │ - Interfaces  │  │ - Nostr Relays  │  │
+│  │ - Formatters  │  │ - Models      │  │ - Media APIs    │  │
+│  │ - Validators  │  │ - Enums       │  │ - Extension APIs│  │
+│  └───────────────┘  └───────────────┘  └─────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Layer Architecture
+
+##### 1. UI Layer (Presentation)
+```
+src/components/
+├── common/           # Reusable UI components
+│   ├── Button.js
+│   ├── Modal.js
+│   ├── Input.js
+│   └── LoadingSpinner.js
+├── timeline/         # Timeline-specific components
+│   ├── TimelineView.js
+│   ├── TimelineItem.js
+│   └── TimelineFilters.js
+├── compose/          # Note composition
+│   ├── ComposeView.js
+│   ├── ComposeEditor.js
+│   └── ComposeActions.js
+├── profile/          # User profile components
+│   ├── ProfileView.js
+│   ├── ProfileHeader.js
+│   └── ProfilePosts.js
+└── settings/         # Application settings
+    ├── SettingsView.js
+    ├── RelaySettings.js
+    └── PrivacySettings.js
+```
+
+##### 2. State Layer (Data Management)
+```
+src/state/
+├── stores/           # Individual state stores
+│   ├── TimelineStore.js
+│   ├── ProfileStore.js
+│   ├── RelayStore.js
+│   └── SettingsStore.js
+├── actions/          # State modification actions
+│   ├── TimelineActions.js
+│   ├── ProfileActions.js
+│   └── RelayActions.js
+├── selectors/        # State selection helpers
+│   ├── TimelineSelectors.js
+│   └── ProfileSelectors.js
+└── StateManager.js   # Core state management
+```
+
+##### 3. Service Layer (Business Logic)
+```
+src/services/
+├── nostr/            # Nostr protocol handling
+│   ├── NostrClient.js
+│   ├── EventValidator.js
+│   └── KeyManager.js
+├── relay/            # Relay communication
+│   ├── RelayManager.js
+│   ├── RelayPool.js
+│   └── RelayMonitor.js
+├── cache/            # Caching strategies
+│   ├── CacheManager.js
+│   ├── IndexedDBCache.js
+│   └── MemoryCache.js
+└── search/           # Search functionality
+    ├── SearchService.js
+    ├── SearchIndex.js
+    └── SearchFilters.js
+```
+
+##### 4. Helper Layer (Utilities)
+```
+src/helpers/
+├── validation/       # Input validation
+├── formatting/       # Content formatting
+├── crypto/           # Cryptographic utilities
+├── performance/      # Performance monitoring
+└── browser/          # Browser API wrappers
+```
+
+### UI/UX Design System
 
 **Performance-First Design:**
 - **Mobile-First**: Touch-friendly responsive design
@@ -87,12 +213,30 @@
 - **Dark Mode**: System preference with manual override
 - **CSS Grid**: Modern layout with progressive enhancement
 
-**Detailed UI Documentation:**
-- **Complete Design System:** See `context/frontend-ui.md`
-- **Component Library:** See `context/frontend-ui.md#components`
-- **Theming System:** See `context/frontend-ui.md#theming`
+#### Performance-First Design
+**Every UI decision optimized for speed and efficiency**
+- **Minimal DOM**: Reduce element count for faster rendering
+- **CSS-only Animations**: No JavaScript animation libraries
+- **Lazy Loading**: Load UI components only when needed
+- **Virtual Scrolling**: Handle large timelines efficiently
+- **Critical Path**: Inline critical CSS, defer non-essential styles
 
-## Deployment & Production
+#### Accessibility-First Approach
+**WCAG 2.1 AA compliance as minimum standard**
+- **Semantic HTML**: Proper element structure for screen readers
+- **Keyboard Navigation**: Full functionality without mouse
+- **Focus Management**: Visible focus indicators and logical tab order
+- **Color Contrast**: 4.5:1 minimum for normal text, 3:1 for large text
+- **Motion Preferences**: Respect prefers-reduced-motion
+
+#### Mobile-First Responsive Design
+**Progressive enhancement from mobile to desktop**
+- **Touch-Friendly**: 44px minimum touch targets
+- **Thumb Navigation**: Critical actions within thumb reach
+- **One-Handed Use**: Primary functions accessible with one hand
+- **Network Awareness**: Graceful degradation on slow connections
+
+### Deployment & Production
 
 **Static Site Strategy:**
 - **Hosting**: Netlify/Vercel with global CDN
@@ -100,149 +244,13 @@
 - **Performance Monitoring**: Core Web Vitals tracking
 - **Zero Server Dependencies**: Complete client-side operation
 
-**Detailed Deployment Documentation:**
-- **Server Technology:** See `context/server-tech.md`
-- **Deployment Strategy:** See `context/server-tech.md#deployment`
-- **Performance Monitoring:** See `context/server-tech.md#monitoring`
-
 ---
 
 # ═══════════════════════════════════════════════════════════════
 # 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY
 # ═══════════════════════════════════════════════════════════════
 
-## Project Status & Development Progress
-
-### ✅ **Planning Phase Completed (2025-09-20)**
-- **Competitor Analysis**: Comprehensive analysis of 4 major Nostr clients (`context/competitors.md`)
-- **Architecture Design**: Modular vanilla JS architecture defined (`context/architecture.md`)
-- **Tech Stack**: Performance-optimized stack selected (`context/tech-stack.md`)
-- **Workflow Standards**: Enterprise development process established (`context/workflow.md`)
-- **Context System**: Modular documentation system created for maintainability
-
-### 🎯 **Next Development Priorities**
-
-#### Immediate (Next Session):
-1. **Project Initialization**: package.json, Vite, TypeScript configuration
-2. **Development Environment**: ESLint, Prettier, testing setup
-3. **Basic Foundation**: HTML structure, core utilities, basic components
-4. **Performance Framework**: Bundle monitoring, build optimization
-5. **Relay Foundation**: SimplePool + DataLoader implementation
-
-#### Development Phases:
-- **Phase 1 (Weeks 1-4)**: Core infrastructure and basic timeline
-- **Phase 2 (Weeks 5-8)**: Advanced features and optimization
-- **Phase 3 (Weeks 9-12)**: Polish, testing, and deployment preparation
-
-**Detailed roadmap available in individual context files.**
-
-### 🔧 **Key Technical Insights**
-
-**Performance Architecture:**
-- **SimplePool + DataLoader**: Optimized relay management pattern from Jumble analysis
-- **Multi-layer Caching**: Memory + IndexedDB + Service Worker strategy
-- **Bundle Optimization**: Tree-shaking, code splitting, dynamic imports
-- **Safari WebSocket Fix**: Connection pooling to prevent performance issues
-
-**Competitive Advantages:**
-- **Bundle Size**: Target <500KB vs competitors' 600-1200KB
-- **Load Performance**: <2s vs competitors' 2-5s
-- **Zero Framework Overhead**: Vanilla JS vs React/SolidJS
-- **VPN Optimization**: Global accessibility focus
-
-**Detailed technical specifications available in context files:**
-- **Performance Strategy**: `context/performance.md`
-- **Architecture Details**: `context/architecture.md`
-- **Competitive Analysis**: `context/competitors.md`
-- **Development Progress**: `context/progress-blog.md`
-
-### 📝 **Development Standards**
-
-**Quality Gates:**
-1. Build success + TypeScript compliance
-2. ESLint + testing requirements
-3. Bundle size < 500KB enforcement
-4. User testing and explicit approval
-
-**Commit Standards:**
-- Mandatory ✅ TESTED format with user approval quotes
-- No Claude Code signatures in commits
-- Explicit user approval required before any commits
-
-**Complete workflow documentation in `context/workflow.md`**
-**Session continuity tracking in `context/progress-blog.md`**
-
----
-
-## Current Session Action Items
-
-### ✅ **Completed (2025-09-20):**
-1. **Competitor Analysis**: Comprehensive research of 4 major Nostr clients
-2. **Project Structure**: Created `/Users/jev/projects/noornote` with modular architecture
-3. **Context System**: Modular documentation system for maintainability
-   - `context/competitors.md` - Competitive analysis and benchmarks
-   - `context/tech-stack.md` - Technology decisions and rationale
-   - `context/performance.md` - Performance optimization strategies
-   - `context/security.md` - Security and privacy implementation
-   - `context/architecture.md` - Software architecture patterns
-   - `context/frontend-ui.md` - UI/UX design system
-   - `context/server-tech.md` - Deployment and hosting strategy
-   - `context/workflow.md` - Development workflow and standards
-4. **CLAUDE.md Optimization**: Streamlined main documentation with context references
-
-### 🎯 **Next Session Goals:**
-1. **Development Environment Setup**: package.json, Vite, TypeScript, ESLint configuration
-2. **Performance Framework**: Bundle monitoring, size limits, build optimization
-3. **Core Foundation**: HTML structure, basic components, state management skeleton
-4. **Relay Foundation**: SimplePool + DataLoader pattern implementation
-5. **Testing Setup**: Vitest, Playwright, accessibility testing framework
-
-### 📋 **Technical Preparation Complete:**
-- **Architecture**: Vanilla JS modular architecture defined
-- **Performance Targets**: <500KB bundle, <2s load time established
-- **Development Process**: Strict 5-phase workflow with user approval gates
-- **Technology Stack**: Optimized for performance and maintainability
-
----
-
 ## Current Session Development Status (2025-09-21)
-
-### ✅ **Workflow Documentation Optimization Complete**
-
-**workflow.md Restructuring:**
-- **Reduced file size**: From 722 lines to optimized, actionable format
-- **Added Clistr-proven rules**: 5-step strict development process at top
-- **Enterprise approach**: Modular architecture, no hacks, future-proof code
-- **Critical commit rules**: ✅ TESTED format, no Claude signatures, user approval gate
-- **Research emphasis**: Look up standards instead of guessing
-
-**Key Workflow Improvements:**
-- **Strict 5-Step Process**: Code (build-ready) → User Test → Approval → Commit → Research
-- **Quality Gates**: npm run build success, TypeScript zero errors, user browser testing
-- **Commit Control**: ONLY after explicit user approval ("commit", "feature is ok", etc.)
-- **Modular Thinking**: "Could this function be useful elsewhere?" - ask user if unsure
-
-**Documentation Cleanup:**
-- Removed redundant technical setup details
-- Focused on actionable workflow standards
-- Emphasized user-centric testing and approval
-- Clear separation of concerns between workflow and technical setup
-
-### 🎯 **Foundation Status: Complete**
-- **Layout System**: CSS Grid 3-column with finalized 5-color brand palette
-- **Sass Architecture**: Atomic Design methodology with comprehensive structure
-- **Workflow Standards**: Enterprise-level development process established
-- **Development Environment**: TypeScript + Vite + Sass build system ready
-
-### 📋 **Ready for Next Development Phase**
-**Current capabilities established:**
-- Visual layout foundation with user-approved design
-- Strict development workflow preventing technical debt
-- Modular architecture approach for scalable growth
-- Quality gates ensuring enterprise-level code standards
-
-*Project Status: Planning complete - Ready for development implementation*
-*Next: Initialize development environment and begin core infrastructure*
 
 ### ✅ **SimplePool + nostr-tools Integration Complete (2025-09-21)**
 
