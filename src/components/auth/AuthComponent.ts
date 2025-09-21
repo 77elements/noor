@@ -25,8 +25,15 @@ export class AuthComponent {
     this.authService = new AuthService();
     this.debugLogger = DebugLogger.getInstance();
     this.mainLayout = mainLayout || null;
+
+    // Check session BEFORE creating UI
+    this.currentUser = this.authService.getCurrentUser();
+
     this.element = this.createElement();
     this.setupEventListeners();
+
+    // Async session restore after UI is ready
+    this.checkExistingSession();
   }
 
   /**
@@ -220,6 +227,36 @@ export class AuthComponent {
       // Create and mount timeline component
       this.timelineComponent = new TimelineComponent(this.currentUser.pubkey);
       timelineContainer.appendChild(this.timelineComponent.getElement());
+    }
+  }
+
+  /**
+   * Check for existing session on component initialization
+   */
+  private async checkExistingSession(): Promise<void> {
+    if (this.authService.hasValidSession()) {
+      const currentUser = this.authService.getCurrentUser();
+      if (currentUser) {
+        this.debugLogger.info('Auth', 'Found existing session, attempting to restore');
+
+        // Try to restore extension connection
+        const restored = await this.authService.restoreExtensionConnection();
+
+        if (restored) {
+          this.currentUser = currentUser;
+          this.debugLogger.info('Auth', 'Session restored successfully');
+
+          // Update main layout user status
+          if (this.mainLayout) {
+            this.mainLayout.setUserStatus(currentUser.npub, currentUser.pubkey);
+          }
+
+          this.updateUI();
+          this.initializeTimeline();
+        } else {
+          this.debugLogger.warn('Auth', 'Failed to restore session - extension unavailable or key mismatch');
+        }
+      }
     }
   }
 

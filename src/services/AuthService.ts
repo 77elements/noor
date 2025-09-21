@@ -21,6 +21,11 @@ declare global {
 export class AuthService {
   private extension: NostrExtension | null = null;
   private currentUser: { npub: string; pubkey: string } | null = null;
+  private readonly storageKey = 'noornote_auth_session';
+
+  constructor() {
+    this.loadSession();
+  }
 
   /**
    * Check if a Nostr extension is available
@@ -77,6 +82,7 @@ export class AuthService {
       const npub = this.hexToNpub(pubkey);
 
       this.currentUser = { npub, pubkey };
+      this.saveSession();
 
       return {
         success: true,
@@ -106,6 +112,7 @@ export class AuthService {
   public signOut(): void {
     this.currentUser = null;
     this.extension = null;
+    this.clearSession();
   }
 
   /**
@@ -123,5 +130,101 @@ export class AuthService {
    */
   public getExtension(): NostrExtension | null {
     return this.extension;
+  }
+
+  /**
+   * Check if user has a valid session
+   */
+  public hasValidSession(): boolean {
+    return this.currentUser !== null;
+  }
+
+  /**
+   * Restore extension connection for existing session
+   */
+  public async restoreExtensionConnection(): Promise<boolean> {
+    if (!this.currentUser || !this.isExtensionAvailable()) {
+      return false;
+    }
+
+    try {
+      this.extension = window.nostr!;
+
+      // Verify the extension still has the same public key
+      const currentPubkey = await this.extension.getPublicKey();
+
+      if (currentPubkey === this.currentUser.pubkey) {
+        return true;
+      } else {
+        // Public key mismatch - clear session
+        this.clearSession();
+        return false;
+      }
+    } catch (error) {
+      console.warn('Failed to restore extension connection:', error);
+      this.clearSession();
+      return false;
+    }
+  }
+
+  /**
+   * Load session from localStorage
+   */
+  private loadSession(): void {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (stored) {
+        const sessionData = JSON.parse(stored);
+        if (sessionData.npub && sessionData.pubkey && sessionData.timestamp) {
+          // Check if session is not too old (24 hours)
+          const sessionAge = Date.now() - sessionData.timestamp;
+          const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+          if (sessionAge < maxAge) {
+            this.currentUser = {
+              npub: sessionData.npub,
+              pubkey: sessionData.pubkey
+            };
+          } else {
+            // Session expired
+            this.clearSession();
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load session:', error);
+      this.clearSession();
+    }
+  }
+
+  /**
+   * Save session to localStorage
+   */
+  private saveSession(): void {
+    if (!this.currentUser) return;
+
+    try {
+      const sessionData = {
+        npub: this.currentUser.npub,
+        pubkey: this.currentUser.pubkey,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(this.storageKey, JSON.stringify(sessionData));
+    } catch (error) {
+      console.warn('Failed to save session:', error);
+    }
+  }
+
+  /**
+   * Clear session from localStorage
+   */
+  private clearSession(): void {
+    try {
+      localStorage.removeItem(this.storageKey);
+    } catch (error) {
+      console.warn('Failed to clear session:', error);
+    }
+    this.currentUser = null;
+    this.extension = null;
   }
 }
