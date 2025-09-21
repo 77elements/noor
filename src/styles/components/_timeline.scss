@@ -15,10 +15,33 @@
     border-bottom: 1px solid $color-2;
     background: $color-1;
 
-    h2 {
-      margin: 0;
-      color: $color-5;
-      font-size: 1.25rem;
+    .timeline-view-selector {
+      .timeline-select {
+        background: $color-2;
+        color: $color-5;
+        border: 1px solid $color-3;
+        border-radius: 4px;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.2s ease;
+
+        &:hover {
+          border-color: $color-4;
+        }
+
+        &:focus {
+          border-color: $color-4;
+          box-shadow: 0 0 0 2px rgba($color-4, 0.2);
+        }
+
+        option {
+          background: $color-2;
+          color: $color-5;
+        }
+      }
     }
 
     .timeline-controls {
@@ -200,13 +223,18 @@
     .timeline-header {
       padding: 0.75rem;
 
-      h2 {
-        font-size: 1.125rem;
+      .timeline-view-selector {
+        .timeline-select {
+          padding: 6px 10px;
+          font-size: 13px;
+        }
       }
 
-      .refresh-btn {
-        padding: 0.375rem 0.75rem;
-        font-size: 0.8125rem;
+      .timeline-controls {
+        .refresh-btn {
+          padding: 0.375rem 0.75rem;
+          font-size: 0.8125rem;
+        }
       }
     }
 
@@ -228,6 +256,13 @@
   .timeline-component {
     .timeline-header {
       padding: 0.5rem;
+
+      .timeline-view-selector {
+        .timeline-select {
+          padding: 4px 8px;
+          font-size: 12px;
+        }
+      }
 
       .timeline-controls {
         .refresh-btn {

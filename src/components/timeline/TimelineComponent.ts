@@ -17,6 +17,7 @@ export class TimelineComponent {
   private userPubkey: string;
   private followingPubkeys: string[] = [];
   private noteHeaders: Map<string, NoteHeader> = new Map(); // Track note headers by event ID
+  private includeReplies = false; // Default: only original notes
 
   constructor(userPubkey: string) {
     this.userPubkey = userPubkey;
@@ -34,7 +35,12 @@ export class TimelineComponent {
     container.className = 'timeline-component';
     container.innerHTML = `
       <div class="timeline-header">
-        <h2>Timeline</h2>
+        <div class="timeline-view-selector">
+          <select class="timeline-select">
+            <option value="latest">Latest</option>
+            <option value="latest-replies">Latest + Replies</option>
+          </select>
+        </div>
         <div class="timeline-controls">
           <button class="refresh-btn" type="button">Refresh</button>
         </div>
@@ -66,6 +72,12 @@ export class TimelineComponent {
     const refreshBtn = container.querySelector('.refresh-btn');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', this.handleRefresh.bind(this));
+    }
+
+    // Setup timeline select dropdown
+    const timelineSelect = container.querySelector('.timeline-select');
+    if (timelineSelect) {
+      timelineSelect.addEventListener('change', this.handleViewChange.bind(this));
     }
 
     return container;
@@ -135,9 +147,9 @@ export class TimelineComponent {
       return;
     }
 
-    const events = await this.nostrClient.fetchTimelineEvents(
+    const allEvents = await this.nostrClient.fetchTimelineEvents(
       this.followingPubkeys,
-      this.showCount,
+      this.showCount * 2, // Fetch more to account for filtering
       undefined,
       (event) => {
         // Real-time event callback - add events as they arrive
@@ -145,10 +157,15 @@ export class TimelineComponent {
       }
     );
 
-    this.events = events;
+    // Filter events based on reply preference
+    const filteredEvents = this.filterEventsByReplyPreference(allEvents);
+
+    console.log(`Loaded ${allEvents.length} events, showing ${filteredEvents.length} (includeReplies: ${this.includeReplies})`);
+
+    this.events = filteredEvents;
     this.renderEvents();
 
-    if (events.length < this.showCount) {
+    if (filteredEvents.length < this.showCount) {
       this.hasMore = false;
     }
   }
@@ -166,23 +183,28 @@ export class TimelineComponent {
       const oldestEvent = this.events[this.events.length - 1];
       const since = oldestEvent ? oldestEvent.created_at - 1 : undefined;
 
-      const newEvents = await this.nostrClient.fetchTimelineEvents(
+      const allNewEvents = await this.nostrClient.fetchTimelineEvents(
         this.followingPubkeys,
-        this.showCount,
+        this.showCount * 2, // Fetch more to account for filtering
         since
       );
 
-      if (newEvents.length > 0) {
+      if (allNewEvents.length > 0) {
+        // Filter new events based on reply preference
+        const filteredNewEvents = this.filterEventsByReplyPreference(allNewEvents);
+
         // Filter out duplicates and add new events
-        const uniqueNewEvents = newEvents.filter(
+        const uniqueNewEvents = filteredNewEvents.filter(
           newEvent => !this.events.some(existing => existing.id === newEvent.id)
         );
+
+        console.log(`Loaded ${allNewEvents.length} more events, showing ${uniqueNewEvents.length} new (includeReplies: ${this.includeReplies})`);
 
         this.events.push(...uniqueNewEvents);
         this.events.sort((a, b) => b.created_at - a.created_at);
         this.renderEvents();
 
-        if (newEvents.length < this.showCount) {
+        if (filteredNewEvents.length < this.showCount) {
           this.hasMore = false;
         }
       } else {
@@ -198,12 +220,43 @@ export class TimelineComponent {
   }
 
   /**
+   * Filter events based on reply preference
+   */
+  private filterEventsByReplyPreference(events: NostrEvent[]): NostrEvent[] {
+    if (this.includeReplies) {
+      // Show all events (original notes + replies)
+      return events;
+    } else {
+      // Show only original notes (filter out replies)
+      return events.filter(event => !this.isReply(event));
+    }
+  }
+
+  /**
+   * Check if an event is a reply
+   */
+  private isReply(event: NostrEvent): boolean {
+    // An event is considered a reply if it has 'e' tags (references to other events)
+    // or 'reply' tags pointing to other events
+    return event.tags.some(tag =>
+      tag[0] === 'e' || // Event reference tag
+      (tag[0] === 'p' && tag[3] === 'reply') // Reply to user tag
+    );
+  }
+
+  /**
    * Add a single event to timeline (for real-time updates)
    */
   private addEventToTimeline(event: NostrEvent): void {
     // Check if event already exists
     if (this.events.some(existing => existing.id === event.id)) {
       return;
+    }
+
+    // Apply reply filter to real-time events too
+    const filteredEvents = this.filterEventsByReplyPreference([event]);
+    if (filteredEvents.length === 0) {
+      return; // Event filtered out
     }
 
     this.events.unshift(event);
@@ -225,14 +278,17 @@ export class TimelineComponent {
     // Clear existing events
     eventsContainer.innerHTML = '';
 
-    // Render events with memoization-like approach
-    this.events.slice(0, this.showCount * 2).forEach((event, index) => {
+    // Get filtered events based on current preference
+    const filteredEvents = this.filterEventsByReplyPreference(this.events);
+
+    // Render filtered events
+    filteredEvents.slice(0, this.showCount * 2).forEach((event, index) => {
       const eventElement = this.createEventElement(event, index);
       eventsContainer.appendChild(eventElement);
     });
 
     // Hide empty state if we have events
-    if (this.events.length > 0) {
+    if (filteredEvents.length > 0) {
       this.hideEmptyState();
     }
   }
@@ -326,6 +382,25 @@ export class TimelineComponent {
     if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
 
     return new Date(timestamp * 1000).toLocaleDateString();
+  }
+
+  /**
+   * Handle timeline view change
+   */
+  private async handleViewChange(event: Event): Promise<void> {
+    const select = event.target as HTMLSelectElement;
+    const selectedView = select.value;
+
+    console.log(`Timeline view changed to: ${selectedView}`);
+
+    // Update include replies flag
+    this.includeReplies = selectedView === 'latest-replies';
+
+    // Don't refresh - just re-filter existing events
+    const filteredEvents = this.filterEventsByReplyPreference(this.events);
+    console.log(`Re-filtering existing ${this.events.length} events, showing ${filteredEvents.length} (includeReplies: ${this.includeReplies})`);
+
+    this.renderEvents();
   }
 
   /**
