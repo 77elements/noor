@@ -174,48 +174,79 @@ export class TimelineComponent {
    * Load more events for infinite scroll
    */
   private async loadMoreEvents(): Promise<void> {
-    if (this.loading || !this.hasMore || this.followingPubkeys.length === 0) return;
+    console.log('🔄 INFINITE SCROLL TRIGGERED');
+    console.log(`📊 Current state: loading=${this.loading}, hasMore=${this.hasMore}, followingCount=${this.followingPubkeys.length}, eventsCount=${this.events.length}`);
+
+    if (this.loading || !this.hasMore || this.followingPubkeys.length === 0) {
+      console.log('❌ Infinite scroll blocked:', { loading: this.loading, hasMore: this.hasMore, followingCount: this.followingPubkeys.length });
+      return;
+    }
 
     this.loading = true;
     this.showMoreLoading(true);
 
     try {
       const oldestEvent = this.events[this.events.length - 1];
-      const since = oldestEvent ? oldestEvent.created_at - 1 : undefined;
+      const until = oldestEvent ? oldestEvent.created_at : undefined;
+
+      console.log(`📅 Oldest event timestamp: ${until} (${oldestEvent ? new Date(until * 1000).toISOString() : 'undefined'})`);
+      console.log(`🔍 Fetching events older than timestamp ${until} from ${this.followingPubkeys.length} authors`);
 
       const allNewEvents = await this.nostrClient.fetchTimelineEvents(
         this.followingPubkeys,
         this.showCount * 2, // Fetch more to account for filtering
-        since
+        until
       );
 
+      console.log(`📥 RAW FETCH RESULT: ${allNewEvents.length} events received`);
+
       if (allNewEvents.length > 0) {
+        // Log a few sample timestamps
+        const sampleEvents = allNewEvents.slice(0, 3);
+        console.log('📋 Sample fetched events:', sampleEvents.map(e => ({
+          id: e.id.slice(0, 8),
+          created_at: e.created_at,
+          date: new Date(e.created_at * 1000).toISOString(),
+          isOlderThanUntil: until ? e.created_at < until : 'N/A'
+        })));
+
         // Filter new events based on reply preference
         const filteredNewEvents = this.filterEventsByReplyPreference(allNewEvents);
+        console.log(`🔍 AFTER REPLY FILTER: ${filteredNewEvents.length} events (includeReplies: ${this.includeReplies})`);
 
         // Filter out duplicates and add new events
         const uniqueNewEvents = filteredNewEvents.filter(
           newEvent => !this.events.some(existing => existing.id === newEvent.id)
         );
 
-        console.log(`Loaded ${allNewEvents.length} more events, showing ${uniqueNewEvents.length} new (includeReplies: ${this.includeReplies})`);
+        console.log(`✅ UNIQUE NEW EVENTS: ${uniqueNewEvents.length} events after deduplication`);
 
-        this.events.push(...uniqueNewEvents);
-        this.events.sort((a, b) => b.created_at - a.created_at);
-        this.renderEvents();
+        if (uniqueNewEvents.length > 0) {
+          console.log('📝 Adding events to timeline and re-rendering...');
+          this.events.push(...uniqueNewEvents);
+          this.events.sort((a, b) => b.created_at - a.created_at);
+          this.renderEvents();
+          console.log(`📊 TIMELINE UPDATED: Now showing ${this.events.length} total events`);
+        } else {
+          console.log('⚠️ No unique events to add (all were duplicates)');
+        }
 
-        if (filteredNewEvents.length < this.showCount) {
+        // Stop infinite scroll if we didn't get enough raw events
+        if (allNewEvents.length < this.showCount) {
           this.hasMore = false;
+          console.log(`🛑 Infinite scroll stopped - only got ${allNewEvents.length} events, expected ${this.showCount}`);
         }
       } else {
         this.hasMore = false;
+        console.log('🛑 Infinite scroll stopped - no events returned from relays');
       }
 
     } catch (error) {
-      console.error('Failed to load more events:', error);
+      console.error('💥 INFINITE SCROLL ERROR:', error);
     } finally {
       this.loading = false;
       this.showMoreLoading(false);
+      console.log('🏁 Infinite scroll operation completed');
     }
   }
 
@@ -281,8 +312,8 @@ export class TimelineComponent {
     // Get filtered events based on current preference
     const filteredEvents = this.filterEventsByReplyPreference(this.events);
 
-    // Render filtered events
-    filteredEvents.slice(0, this.showCount * 2).forEach((event, index) => {
+    // Render ALL filtered events (for infinite scroll)
+    filteredEvents.forEach((event, index) => {
       const eventElement = this.createEventElement(event, index);
       eventsContainer.appendChild(eventElement);
     });

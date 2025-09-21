@@ -109,4 +109,27 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - ⚠️ Profile cache issues remain unresolved
 
 **User Feedback:** "Timeline loads much faster, most profile pictures work"
-**Next Priority:** Address remaining profile loading cache issues
+
+### ✅ **Infinite Scroll Implementation Fixed (2025-09-21)**
+
+**Major Bug Fix:**
+- **Problem**: Infinite scroll was fetching events but not displaying them in UI
+- **Root Cause**: Two issues found through comprehensive debugging:
+  1. NostrClient used 'since' parameter instead of 'until' for fetching older events
+  2. renderEvents() limited display to only 40 events despite loading 109 events
+- **Solution**: Fixed Nostr protocol compliance and removed display limitations
+
+**Technical Changes:**
+- **NostrClient.ts**: Changed fetchTimelineEvents parameter from 'since' to 'until' for proper pagination
+- **TimelineComponent.ts**: Fixed loadMoreEvents() timestamp logic (until = oldestEvent.created_at)
+- **TimelineComponent.ts**: Removed renderEvents() slice limit that prevented new events from showing
+- **Debug logging**: Added comprehensive infinite scroll diagnostics
+
+**Performance Results:**
+- ✅ Infinite scroll works very fast and smoothly
+- ✅ Events load properly when scrolling to bottom
+- ✅ Correct Nostr protocol compliance with 'until' parameter
+- ✅ All loaded events now display in timeline
+
+**User Feedback:** "Sehr gut, funktioniert sehr schnell. Commit."
+**Next Priority:** Clean up debug logs and continue with next features

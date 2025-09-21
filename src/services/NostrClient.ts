@@ -83,7 +83,7 @@ export class NostrClient {
   public async fetchTimelineEvents(
     pubkeys: string[],
     limit: number = 100,
-    since?: number,
+    until?: number,
     callback?: (event: NostrEvent) => void
   ): Promise<NostrEvent[]> {
     const relays = this.relayConfig.getReadRelays();
@@ -91,10 +91,11 @@ export class NostrClient {
       authors: pubkeys,
       kinds: [1], // Text notes
       limit,
-      since
+      until
     };
 
-    console.log(`Fetching timeline events from ${relays.length} relays for ${pubkeys.length} authors`);
+    console.log(`🔗 NOSTR CLIENT: Fetching timeline events from ${relays.length} relays for ${pubkeys.length} authors`);
+    console.log(`📋 Filter details:`, { limit, until, kinds: [1] });
 
     const events: NostrEvent[] = [];
 
