@@ -42,12 +42,17 @@
 // Layout areas
 .sidebar {
   grid-area: sidebar;
+  min-width: 0;
 }
 
 .primary-content {
   grid-area: primary;
+  min-width: 0; // Critical: allows content to shrink below natural size
+  overflow: hidden; // Prevent layout breaking
 }
 
 .secondary-content {
   grid-area: secondary;
+  min-width: 0; // Critical: allows content to shrink below natural size
+  overflow: hidden; // Prevent layout breaking
 }

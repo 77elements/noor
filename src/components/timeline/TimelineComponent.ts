@@ -4,6 +4,7 @@
  */
 
 import { NostrClient, NostrEvent } from '../../services/NostrClient';
+import { NoteHeader } from '../ui/NoteHeader';
 
 export class TimelineComponent {
   private element: HTMLElement;
@@ -15,6 +16,7 @@ export class TimelineComponent {
   private intersectionObserver: IntersectionObserver | null = null;
   private userPubkey: string;
   private followingPubkeys: string[] = [];
+  private noteHeaders: Map<string, NoteHeader> = new Map(); // Track note headers by event ID
 
   constructor(userPubkey: string) {
     this.userPubkey = userPubkey;
@@ -236,24 +238,39 @@ export class TimelineComponent {
   }
 
   /**
-   * Create individual event element
+   * Create individual event element using reusable NoteHeader component
    */
   private createEventElement(event: NostrEvent, index: number): HTMLElement {
     const eventDiv = document.createElement('div');
     eventDiv.className = 'timeline-event';
     eventDiv.dataset.eventId = event.id;
 
-    const timeAgo = this.formatTimeAgo(event.created_at);
-    const shortPubkey = event.pubkey.slice(0, 8) + '...';
+    // Create note header component
+    const noteHeader = new NoteHeader({
+      pubkey: event.pubkey,
+      timestamp: event.created_at,
+      size: 'medium',
+      showVerification: true,
+      showTimestamp: true,
+      onClick: (pubkey: string) => {
+        // Handle profile click (can be extended later)
+        console.log('Profile clicked:', pubkey);
+      }
+    });
 
+    // Store reference for cleanup
+    this.noteHeaders.set(event.id, noteHeader);
+
+    // Check for long content
+    const hasLong = this.hasLongContent(event.content);
+    const contentClass = hasLong ? 'event-content has-long-content' : 'event-content';
+
+    // Create event structure
     eventDiv.innerHTML = `
-      <div class="event-header">
-        <div class="event-author">
-          <strong>${shortPubkey}</strong>
-        </div>
-        <div class="event-time">${timeAgo}</div>
+      <div class="event-header-container">
+        <!-- Note header will be inserted here -->
       </div>
-      <div class="event-content">
+      <div class="${contentClass}">
         ${this.formatEventContent(event.content)}
       </div>
       <div class="event-footer">
@@ -261,6 +278,12 @@ export class TimelineComponent {
         <span class="event-id">${event.id.slice(0, 8)}...</span>
       </div>
     `;
+
+    // Mount note header
+    const headerContainer = eventDiv.querySelector('.event-header-container');
+    if (headerContainer) {
+      headerContainer.appendChild(noteHeader.getElement());
+    }
 
     return eventDiv;
   }
@@ -279,6 +302,15 @@ export class TimelineComponent {
 
     // Convert line breaks
     return escaped.replace(/\n/g, '<br>');
+  }
+
+  /**
+   * Check if content has long unbreakable strings (like nevent IDs)
+   */
+  private hasLongContent(content: string): boolean {
+    // Check for words longer than 50 characters (likely nostr IDs)
+    const words = content.split(/\s+/);
+    return words.some(word => word.length > 50);
   }
 
   /**
@@ -374,6 +406,13 @@ export class TimelineComponent {
     if (this.intersectionObserver) {
       this.intersectionObserver.disconnect();
     }
+
+    // Cleanup all note headers
+    this.noteHeaders.forEach(noteHeader => {
+      noteHeader.destroy();
+    });
+    this.noteHeaders.clear();
+
     this.element.remove();
   }
 }

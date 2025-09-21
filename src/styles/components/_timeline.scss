@@ -58,29 +58,34 @@
       background: rgba($color-2, 0.5);
     }
 
-    .event-header {
-      @include flex-between;
-      margin-bottom: 0.5rem;
+    .event-header-container {
+      margin-bottom: 0.75rem;
 
-      .event-author {
-        strong {
-          color: $color-4;
-          font-size: 0.875rem;
-        }
-      }
-
-      .event-time {
-        color: $color-5;
-        opacity: 0.7;
-        font-size: 0.75rem;
-      }
+      // The NoteHeader component handles its own styling
+      // We just provide container-level adjustments if needed
     }
 
     .event-content {
       color: $color-5;
       line-height: 1.5;
       margin-bottom: 0.75rem;
+
+      // Comprehensive text overflow protection
       word-wrap: break-word;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
+
+      // Prevent layout breaking
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+
+      // Handle very long unbreakable strings (like nevent IDs)
+      &.has-long-content {
+        word-break: break-all;
+        white-space: pre-wrap;
+      }
     }
 
     .event-footer {
@@ -233,12 +238,16 @@
     }
 
     .timeline-event {
-      padding: 0.5rem;
+      padding: 0.75rem;
 
-      .event-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.25rem;
+      .event-header-container {
+        margin-bottom: 0.5rem;
+
+        // NoteHeader will adapt to container size automatically
+        // Use small size on mobile
+        .note-header {
+          // The NoteHeader component's container queries will handle this
+        }
       }
     }
   }
