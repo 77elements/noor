@@ -4,11 +4,13 @@
  */
 
 import { AuthService } from '../../services/AuthService';
+import { TimelineComponent } from '../timeline/TimelineComponent';
 
 export class AuthComponent {
   private element: HTMLElement;
   private authService: AuthService;
   private currentUser: { npub: string; pubkey: string } | null = null;
+  private timelineComponent: TimelineComponent | null = null;
 
   constructor() {
     this.authService = new AuthService();
@@ -24,19 +26,19 @@ export class AuthComponent {
     container.className = 'auth-component';
 
     if (this.currentUser) {
-      // User is authenticated - show their npub and user info
+      // User is authenticated - show timeline
       container.innerHTML = `
         <div class="authenticated-content">
-          <h2>Welcome to Noornote!</h2>
-          <div class="user-info">
-            <h3>Your Public Key:</h3>
-            <p class="npub-display">${this.currentUser.npub}</p>
-            <p class="pubkey-hex">Hex: ${this.currentUser.pubkey}</p>
+          <div class="user-status">
+            <div class="user-info">
+              <span class="user-indicator">🟢</span>
+              <span class="user-npub">${this.currentUser.npub}</span>
+            </div>
+            <button class="logout-btn" type="button">Sign Out</button>
           </div>
-          <div class="next-steps">
-            <p>Authentication successful! Timeline and other features will be implemented next.</p>
+          <div class="timeline-container">
+            <!-- Timeline will be mounted here -->
           </div>
-          <button class="logout-btn" type="button">Sign Out</button>
         </div>
       `;
     } else {
@@ -116,6 +118,7 @@ export class AuthComponent {
         // Authentication successful - store user and update UI
         this.currentUser = { npub: result.npub, pubkey: result.pubkey };
         this.updateUI();
+        this.initializeTimeline();
       } else {
         // Authentication failed
         this.showError(result.error || 'Authentication failed');
@@ -193,9 +196,26 @@ export class AuthComponent {
   }
 
   /**
+   * Initialize timeline after authentication
+   */
+  private initializeTimeline(): void {
+    if (!this.currentUser) return;
+
+    const timelineContainer = this.element.querySelector('.timeline-container');
+    if (timelineContainer) {
+      // Create and mount timeline component
+      this.timelineComponent = new TimelineComponent(this.currentUser.pubkey);
+      timelineContainer.appendChild(this.timelineComponent.getElement());
+    }
+  }
+
+  /**
    * Cleanup resources
    */
   public destroy(): void {
+    if (this.timelineComponent) {
+      this.timelineComponent.destroy();
+    }
     this.element.remove();
   }
 }

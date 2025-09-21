@@ -20,6 +20,10 @@
 @use 'atoms/labels';
 @use 'atoms/links';
 
+// 3.5. Components - Individual UI components
+@use 'components/auth';
+@use 'components/timeline';
+
 // 4. Molecules - Combinations of atoms
 @use 'molecules/forms';
 @use 'molecules/cards';
@@ -29,7 +33,6 @@
 // 5. Organisms - Complex UI sections
 @use 'organisms/header';
 @use 'organisms/sidebar';
-@use 'organisms/timeline';
 @use 'organisms/footer';
 
 // 6. Templates - Page-level layouts

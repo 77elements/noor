@@ -70,8 +70,22 @@
 - Cleaned color system to 5 base colors only
 - Bundle: 8.39 kB JS (2.61 kB gzipped)
 
+### 2025-09-21 (Timeline Implementation)
+
+**✅ Timeline Core Implementation:**
+- RelayConfig service with user's Jumble-based relay setup
+- NostrClient with SimplePool pattern and rate limiting
+- TimelineComponent with IntersectionObserver infinite scroll
+- Follow-list fetching and timeline event loading ✅
+
+**✅ Performance & Architecture:**
+- Bundle: 19.76 kB JS (5.66 kB gzipped), 20.11 kB CSS (3.94 kB gzipped)
+- Rate limiting: 100ms delays for respectful relay querying
+- Event caching and deduplication
+- Real-time updates during loading
+
 ## Next Session Goals (2025-09-22)
-**Priority 1:** Timeline implementation (event display, real-time updates)
-**Priority 2:** Relay connection and event fetching
+**Priority 1:** Timeline UI refinement (better event display, formatting)
+**Priority 2:** Settings component with relay management UI
 
 *Progress tracking: Complete project history for seamless session continuity*
