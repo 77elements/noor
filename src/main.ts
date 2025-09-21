@@ -4,7 +4,7 @@
  */
 
 import { App } from './App';
-import './styles/main.css';
+import './styles/main.scss';
 
 // Application initialization
 async function init(): Promise<void> {

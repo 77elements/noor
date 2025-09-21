@@ -1,0 +1,89 @@
+/**
+ * Sidebar Organism
+ * Navigation and user info
+ */
+
+.sidebar {
+  @include card-base;
+  padding: $spacing-4;
+  overflow-y: auto;
+  background-color: var(--color-surface);
+
+  @include desktop-down {
+    padding: $spacing-3;
+  }
+
+  @include tablet-down {
+    padding: $spacing-2;
+  }
+}
+
+.sidebar-content {
+  @include flex-column;
+  height: 100%;
+}
+
+.sidebar h2 {
+  font-size: $font-size-lg;
+  margin-bottom: $spacing-4;
+  color: $color-primary;
+
+  @include desktop-down {
+    display: none; // Hide text on smaller screens
+  }
+
+  @include tablet-down {
+    display: block; // Show text on mobile
+  }
+}
+
+.sidebar p {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  margin-bottom: $spacing-4;
+
+  @include desktop-down {
+    display: none; // Hide text on smaller screens
+  }
+
+  @include tablet-down {
+    display: block; // Show text on mobile
+  }
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 $spacing-6 0;
+
+  @include tablet-down {
+    display: flex;
+    gap: $spacing-2;
+    overflow-x: auto;
+  }
+}
+
+.sidebar li {
+  padding: $spacing-2;
+  margin-bottom: $spacing-1;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: $transition-colors;
+  color: var(--color-text-interactive); // Pink for interactive elements
+
+  &:hover {
+    background-color: rgba($color-4, 0.1); // Light pink hover background
+    color: var(--color-text-interactive);
+  }
+
+  @include tablet-down {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: $spacing-4;
+  border-top: 1px solid var(--color-border);
+}

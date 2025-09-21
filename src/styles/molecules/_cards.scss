@@ -1,0 +1,93 @@
+/**
+ * Card Molecules
+ * Content containers and post items
+ */
+
+// Base content wrapper
+.content-wrapper {
+  height: 100%;
+  @include flex-column;
+  @include card-base;
+  padding: $spacing-4;
+  overflow-y: auto;
+  background-color: var(--color-background);
+
+  @include tablet-down {
+    padding: $spacing-2;
+  }
+
+  h2 {
+    font-size: $font-size-xl;
+    margin-bottom: $spacing-4;
+    color: var(--color-text-primary);
+  }
+
+  p {
+    color: var(--color-text-secondary);
+    margin-bottom: $spacing-6;
+  }
+}
+
+// Timeline post items
+.timeline-placeholder {
+  flex: 1;
+  @include flex-column;
+  gap: $spacing-4;
+}
+
+.post-item {
+  @include card-interactive;
+  padding: $spacing-4;
+
+  h4 {
+    margin: 0 0 $spacing-2 0;
+    color: var(--color-text-primary);
+    font-weight: $font-weight-medium;
+  }
+
+  p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: $font-size-sm;
+    line-height: $line-height-relaxed;
+  }
+}
+
+// Widget containers
+.widget-placeholder {
+  flex: 1;
+  @include flex-column;
+  gap: $spacing-4;
+}
+
+.widget {
+  @include card-base;
+  padding: $spacing-4;
+
+  h4 {
+    margin: 0 0 $spacing-2 0;
+    color: var(--color-text-primary);
+    font-weight: $font-weight-medium;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  li {
+    padding: $spacing-1 0;
+    color: var(--color-text-interactive); // Pink for interactive elements
+    font-size: $font-size-sm;
+    cursor: pointer;
+    transition: $transition-colors;
+
+    &:hover {
+      color: var(--color-text-interactive);
+      background-color: rgba($color-4, 0.1); // Light pink hover background
+      border-radius: $radius-sm;
+      padding-left: $spacing-2;
+    }
+  }
+}

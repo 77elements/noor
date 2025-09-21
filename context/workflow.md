@@ -17,6 +17,50 @@
 - **User-Centric**: Real browser testing over automated testing
 - **Rollback Ready**: Every commit must be potentially deployable
 
+## Screenshot Documentation Workflow
+
+### Screenshot Management Standards
+
+**Directory Structure:**
+- All screenshots stored in `screenshots/` directory
+- `screenshots/screenshot.png` is always the **current default screenshot**
+- When user says "siehe Screenshot" without filename, refers to `screenshots/screenshot.png`
+- Other screenshots use descriptive filenames within `screenshots/` directory
+
+**Workflow Process:**
+1. **Current State Capture**: User downloads `screenshots/screenshot.png` showing current app state
+2. **Reference Default**: "siehe Screenshot" always means `screenshots/screenshot.png`
+3. **Specific References**: Other files explicitly named (e.g., `screenshots/dark-mode.png`)
+4. **Git Exclusion**: `screenshots/` directory excluded from version control via `.gitignore`
+
+**File Naming Conventions:**
+- `screenshot.png` - Current default state
+- `[feature]-[state].png` - Specific features (e.g., `sidebar-collapsed.png`)
+- `[page]-[variant].png` - Page variations (e.g., `profile-dark.png`)
+- `[timestamp]-[description].png` - Historical snapshots
+
+**Development Integration:**
+- Screenshots provide visual context for design decisions
+- Compare before/after states during feature development
+- Document responsive behavior across breakpoints
+- Track visual regression during refactoring
+
+## Color Usage Standards
+
+### Brand Color Restrictions
+
+**NEVER use color variants without explicit user request:**
+- Only use base colors: $color-1, $color-2, $color-3, $color-4, $color-5
+- Do NOT use: $color-1-light, $color-1-dark, $color-2-light, $color-2-dark, etc.
+- User must explicitly request "make it lighter" or "make it darker" before using variants
+- Sass lighten()/darken() functions only on explicit user instruction
+
+**Base Color Usage:**
+- $color-1, $color-2: Background colors only
+- $color-5: Default text color
+- $color-4: Interactive elements only (clickable recognition)
+- $color-3: Accent color (sparingly used)
+
 ## Git Workflow & Branch Strategy
 
 ### Branch Structure

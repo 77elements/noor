@@ -3,8 +3,11 @@
  * Coordinates all application modules and manages the application lifecycle
  */
 
+import { MainLayout } from './components/layout/MainLayout';
+
 export class App {
   private appElement: HTMLElement | null = null;
+  private mainLayout: MainLayout | null = null;
 
   constructor() {
     this.appElement = document.getElementById('app');
@@ -43,31 +46,9 @@ export class App {
   private setupUI(): void {
     if (!this.appElement) return;
 
-    this.appElement.innerHTML = `
-      <div class="app-container">
-        <header class="app-header">
-          <h1>نور Noor</h1>
-          <p>High-performance Nostr client</p>
-        </header>
-
-        <main class="app-main">
-          <div class="welcome-message">
-            <h2>Welcome to Noor</h2>
-            <p>Development environment setup complete!</p>
-            <ul>
-              <li>✅ TypeScript configured with strict mode</li>
-              <li>✅ Vite build system ready</li>
-              <li>✅ ESLint + Prettier code quality</li>
-              <li>✅ Project structure established</li>
-            </ul>
-          </div>
-        </main>
-
-        <footer class="app-footer">
-          <p>Noor v${__APP_VERSION__} - Built ${new Date(__BUILD_DATE__).toLocaleDateString()}</p>
-        </footer>
-      </div>
-    `;
+    // Create and mount the main layout
+    this.mainLayout = new MainLayout();
+    this.appElement.appendChild(this.mainLayout.getElement());
   }
 
   /**

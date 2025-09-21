@@ -1,0 +1,238 @@
+/**
+ * Typography - Font styles and text utilities
+ * Consistent typography across the application
+ */
+
+// Heading styles
+h1 {
+  @include heading-xl;
+  margin-bottom: $spacing-6;
+}
+
+h2 {
+  @include heading-lg;
+  margin-bottom: $spacing-5;
+}
+
+h3 {
+  @include heading-md;
+  margin-bottom: $spacing-4;
+}
+
+h4 {
+  @include heading-sm;
+  margin-bottom: $spacing-3;
+}
+
+h5,
+h6 {
+  @include heading-base;
+  font-size: $font-size-lg;
+  margin-bottom: $spacing-3;
+}
+
+// Paragraph styles
+p {
+  margin-bottom: $spacing-4;
+  color: var(--color-text-primary);
+  line-height: $line-height-relaxed;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &.lead {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-medium;
+    color: var(--color-text-secondary);
+  }
+
+  &.small {
+    font-size: $font-size-sm;
+    color: var(--color-text-secondary);
+  }
+}
+
+// Link styles
+a {
+  color: var(--color-text-interactive); // Pink for all interactive elements
+  text-decoration: none;
+  transition: $transition-colors;
+
+  &:hover {
+    color: var(--color-text-interactive);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+// List styles
+ul,
+ol {
+  margin-bottom: $spacing-4;
+  padding-left: $spacing-6;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+ul {
+  list-style-type: disc;
+}
+
+ol {
+  list-style-type: decimal;
+}
+
+li {
+  margin-bottom: $spacing-1;
+  line-height: $line-height-relaxed;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// Definition lists
+dl {
+  margin-bottom: $spacing-4;
+}
+
+dt {
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin-bottom: $spacing-1;
+}
+
+dd {
+  margin-bottom: $spacing-3;
+  color: var(--color-text-secondary);
+  margin-left: $spacing-4;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// Inline text elements
+strong,
+b {
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+}
+
+em,
+i {
+  font-style: italic;
+}
+
+small {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+mark {
+  background-color: rgba($color-warning, 0.2);
+  color: var(--color-text-primary);
+  padding: 0 $spacing-1;
+  border-radius: $radius-sm;
+}
+
+// Code elements
+code {
+  font-family: $font-family-mono;
+  font-size: 0.875em;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: $spacing-1 $spacing-2;
+  border-radius: $radius-sm;
+  border: 1px solid var(--color-border);
+}
+
+pre {
+  font-family: $font-family-mono;
+  font-size: $font-size-sm;
+  line-height: $line-height-relaxed;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: $spacing-4;
+  border-radius: $radius-lg;
+  border: 1px solid var(--color-border);
+  overflow-x: auto;
+  margin-bottom: $spacing-4;
+
+  code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+  }
+}
+
+// Blockquotes
+blockquote {
+  font-size: $font-size-lg;
+  line-height: $line-height-relaxed;
+  color: var(--color-text-secondary);
+  border-left: 4px solid $color-primary;
+  padding-left: $spacing-4;
+  margin: $spacing-6 0;
+  font-style: italic;
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  cite {
+    display: block;
+    font-size: $font-size-sm;
+    font-style: normal;
+    color: var(--color-text-tertiary);
+    margin-top: $spacing-2;
+
+    &::before {
+      content: '— ';
+    }
+  }
+}
+
+// Horizontal rule
+hr {
+  border: none;
+  height: 1px;
+  background-color: var(--color-border);
+  margin: $spacing-8 0;
+}
+
+// Text utility classes
+.text-xs { font-size: $font-size-xs; }
+.text-sm { font-size: $font-size-sm; }
+.text-base { font-size: $font-size-base; }
+.text-lg { font-size: $font-size-lg; }
+.text-xl { font-size: $font-size-xl; }
+.text-2xl { font-size: $font-size-2xl; }
+.text-3xl { font-size: $font-size-3xl; }
+
+.font-light { font-weight: $font-weight-light; }
+.font-normal { font-weight: $font-weight-normal; }
+.font-medium { font-weight: $font-weight-medium; }
+.font-semibold { font-weight: $font-weight-semibold; }
+.font-bold { font-weight: $font-weight-bold; }
+
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+.text-interactive { color: var(--color-text-interactive); }
+.text-accent { color: var(--color-accent); }
+
+.text-truncate { @include text-truncate; }
+.text-truncate-2 { @include text-truncate-lines(2); }
+.text-truncate-3 { @include text-truncate-lines(3); }
