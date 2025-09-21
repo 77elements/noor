@@ -4,14 +4,6 @@
 # 🔒 CORE SYSTEM SPECIFICATIONS - NEVER MODIFY WITHOUT EXPLICIT USER REQUEST
 # ═══════════════════════════════════════════════════════════════
 
-## Project Overview & Mission
-
-**Noornote** (Arabic: نور, meaning "light") is a high-performance, enterprise-grade Nostr web client designed to combine the best performance patterns from existing clients while delivering superior UX, security, and global accessibility.
-
-**Mission:** Create the fastest, most secure, and most user-friendly Nostr client on the web.
-
-**Target Users:** Nostr power users, newcomers needing smooth onboarding, privacy-conscious users, global users behind VPNs/firewalls.
-
 ## ⛔ STRICT DEVELOPMENT PROCESS - NEVER DEVIATE!
 
 ### General Philosophy
@@ -60,32 +52,9 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - **SimplePool Pattern:** Optimized relay connection management
 - **Client-side Search:** FlexSearch for instant search
 
-### Project Repository
-
-**GitHub Repository:** https://github.com/77elements/noornote
-**License:** MIT License (chosen for maximum adoption and Nostr ecosystem compatibility)
-**Development Server:** http://localhost:3000/ (Vite dev server)
-
 ### Screenshot Workflow
 - **Default Reference**: `screenshots/screenshot.png` - current app state
 - **User Commands**: "siehe Screenshot" = `screenshots/screenshot.png`
-
-### Devblog
-
-At the end of every session, we add a daily entry into the devblog/ about our progress. It's organized in monthly md-Files. Keep those entry short and on-point.
-
-### Security & Privacy Standards
-
-**Client-Side Security Model:**
-- **Zero Server Dependencies** - All processing client-side
-- **No User Tracking** - Complete privacy by design
-- **Browser Extension Integration** - nos2x, Alby, Flamingo support
-- **VPN & Tor Optimization** - Global accessibility and privacy
-
-**Detailed Security Documentation:**
-- **Complete Security Model:** See `context/security.md`
-- **Privacy Implementation:** See `context/security.md#privacy`
-- **VPN Support:** See `context/security.md#vpn-tor`
 
 ### Application Architecture
 
@@ -104,107 +73,6 @@ At the end of every session, we add a daily entry into the devblog/ about our pr
 - **No UI logic in App.ts**: Components handle their own rendering and user interactions
 - **Example**: Authentication logic belongs in AuthComponent, not App.ts or MainLayout.ts
 
-#### High-Level Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Browser Environment                       │
-├─────────────────────────────────────────────────────────────┤
-│  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐  │
-│  │   UI Layer    │  │  State Layer  │  │  Service Layer  │  │
-│  │               │  │               │  │                 │  │
-│  │ - Components  │  │ - Stores      │  │ - Nostr Client  │  │
-│  │ - Views       │←→│ - Actions     │←→│ - Relay Manager │  │
-│  │ - Events      │  │ - Selectors   │  │ - Cache Manager │  │
-│  └───────────────┘  └───────────────┘  └─────────────────┘  │
-│           ↑                   ↑                    ↓        │
-│  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐  │
-│  │ Helper Layer  │  │  Types Layer  │  │ External APIs   │  │
-│  │               │  │               │  │                 │  │
-│  │ - Utilities   │  │ - Interfaces  │  │ - Nostr Relays  │  │
-│  │ - Formatters  │  │ - Models      │  │ - Media APIs    │  │
-│  │ - Validators  │  │ - Enums       │  │ - Extension APIs│  │
-│  └───────────────┘  └───────────────┘  └─────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-#### Layer Architecture
-
-##### 1. UI Layer (Presentation)
-```
-src/components/
-├── common/           # Reusable UI components
-│   ├── Button.js
-│   ├── Modal.js
-│   ├── Input.js
-│   └── LoadingSpinner.js
-├── timeline/         # Timeline-specific components
-│   ├── TimelineView.js
-│   ├── TimelineItem.js
-│   └── TimelineFilters.js
-├── compose/          # Note composition
-│   ├── ComposeView.js
-│   ├── ComposeEditor.js
-│   └── ComposeActions.js
-├── profile/          # User profile components
-│   ├── ProfileView.js
-│   ├── ProfileHeader.js
-│   └── ProfilePosts.js
-└── settings/         # Application settings
-    ├── SettingsView.js
-    ├── RelaySettings.js
-    └── PrivacySettings.js
-```
-
-##### 2. State Layer (Data Management)
-```
-src/state/
-├── stores/           # Individual state stores
-│   ├── TimelineStore.js
-│   ├── ProfileStore.js
-│   ├── RelayStore.js
-│   └── SettingsStore.js
-├── actions/          # State modification actions
-│   ├── TimelineActions.js
-│   ├── ProfileActions.js
-│   └── RelayActions.js
-├── selectors/        # State selection helpers
-│   ├── TimelineSelectors.js
-│   └── ProfileSelectors.js
-└── StateManager.js   # Core state management
-```
-
-##### 3. Service Layer (Business Logic)
-```
-src/services/
-├── nostr/            # Nostr protocol handling
-│   ├── NostrClient.js
-│   ├── EventValidator.js
-│   └── KeyManager.js
-├── relay/            # Relay communication
-│   ├── RelayManager.js
-│   ├── RelayPool.js
-│   └── RelayMonitor.js
-├── cache/            # Caching strategies
-│   ├── CacheManager.js
-│   ├── IndexedDBCache.js
-│   └── MemoryCache.js
-└── search/           # Search functionality
-    ├── SearchService.js
-    ├── SearchIndex.js
-    └── SearchFilters.js
-```
-
-##### 4. Helper Layer (Utilities)
-```
-src/helpers/
-├── validation/       # Input validation
-├── formatting/       # Content formatting
-├── crypto/           # Cryptographic utilities
-├── performance/      # Performance monitoring
-└── browser/          # Browser API wrappers
-```
-
 ### UI/UX Design System
 
 **Performance-First Design:**
@@ -212,37 +80,6 @@ src/helpers/
 - **Accessibility**: WCAG 2.1 AA compliance
 - **Dark Mode**: System preference with manual override
 - **CSS Grid**: Modern layout with progressive enhancement
-
-#### Performance-First Design
-**Every UI decision optimized for speed and efficiency**
-- **Minimal DOM**: Reduce element count for faster rendering
-- **CSS-only Animations**: No JavaScript animation libraries
-- **Lazy Loading**: Load UI components only when needed
-- **Virtual Scrolling**: Handle large timelines efficiently
-- **Critical Path**: Inline critical CSS, defer non-essential styles
-
-#### Accessibility-First Approach
-**WCAG 2.1 AA compliance as minimum standard**
-- **Semantic HTML**: Proper element structure for screen readers
-- **Keyboard Navigation**: Full functionality without mouse
-- **Focus Management**: Visible focus indicators and logical tab order
-- **Color Contrast**: 4.5:1 minimum for normal text, 3:1 for large text
-- **Motion Preferences**: Respect prefers-reduced-motion
-
-#### Mobile-First Responsive Design
-**Progressive enhancement from mobile to desktop**
-- **Touch-Friendly**: 44px minimum touch targets
-- **Thumb Navigation**: Critical actions within thumb reach
-- **One-Handed Use**: Primary functions accessible with one hand
-- **Network Awareness**: Graceful degradation on slow connections
-
-### Deployment & Production
-
-**Static Site Strategy:**
-- **Hosting**: Netlify/Vercel with global CDN
-- **Progressive Web App**: Service Worker for offline functionality
-- **Performance Monitoring**: Core Web Vitals tracking
-- **Zero Server Dependencies**: Complete client-side operation
 
 ---
 
