@@ -1,0 +1,212 @@
+/**
+ * Debug Logger Component Styles
+ * Live debug logging with auto-scroll for Secondary Content
+ */
+
+.debug-logger {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--surface-elevated-color);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+
+    h3 {
+      margin: 0 0 10px 0;
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      color: var(--text-primary-color);
+    }
+  }
+
+  &__controls {
+    display: flex;
+    gap: var(--space-xs);
+    margin-bottom: 10px;
+
+    button {
+      padding: var(--space-xs) var(--space-sm);
+      font-size: var(--font-size-xs);
+      background: var(--button-secondary-bg);
+      color: var(--button-secondary-text);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-sm);
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background: var(--button-secondary-hover);
+      }
+    }
+  }
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-xs);
+    background: var(--surface-color);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  &__logs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 100%;
+  }
+}
+
+.debug-log-entry {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  border-radius: var(--border-radius-sm);
+  word-break: break-all;
+  font-family: var(--font-mono);
+
+  &--info {
+    background: var(--surface-elevated-color);
+    border-left: 3px solid var(--accent-blue);
+  }
+
+  &--debug {
+    background: var(--surface-color);
+    border-left: 3px solid var(--text-secondary-color);
+    opacity: 0.8;
+  }
+
+  &--warn {
+    background: rgba(255, 193, 7, 0.1);
+    border-left: 3px solid var(--accent-yellow);
+  }
+
+  &--error {
+    background: rgba(220, 53, 69, 0.1);
+    border-left: 3px solid var(--accent-red);
+  }
+
+  &__time {
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    width: 70px;
+    flex-shrink: 0;
+  }
+
+  &__level {
+    font-weight: 600;
+    white-space: nowrap;
+    width: 60px;
+    flex-shrink: 0;
+
+    .debug-log-entry--info & {
+      color: var(--accent-blue);
+    }
+
+    .debug-log-entry--debug & {
+      color: var(--text-secondary-color);
+    }
+
+    .debug-log-entry--warn & {
+      color: var(--accent-yellow);
+    }
+
+    .debug-log-entry--error & {
+      color: var(--accent-red);
+    }
+  }
+
+  &__category {
+    color: var(--accent-purple);
+    font-weight: 500;
+    white-space: nowrap;
+    width: 75px;
+    flex-shrink: 0;
+  }
+
+  &__message {
+    color: var(--text-primary-color);
+    flex: 1;
+    word-break: break-word;
+  }
+
+  &__data {
+    margin: var(--space-xs) 0 0 0;
+    padding: var(--space-xs);
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    color: var(--text-secondary-color);
+  }
+}
+
+// Dark mode optimizations
+@media (prefers-color-scheme: dark) {
+  .debug-logger {
+    &__content {
+      background: var(--surface-dark-color);
+    }
+  }
+
+  .debug-log-entry {
+    &--info {
+      background: rgba(13, 110, 253, 0.1);
+    }
+
+    &--debug {
+      background: rgba(108, 117, 125, 0.1);
+    }
+
+    &--warn {
+      background: rgba(255, 193, 7, 0.15);
+    }
+
+    &--error {
+      background: rgba(220, 53, 69, 0.15);
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .debug-logger {
+    &__header {
+      padding: var(--space-xs) var(--space-sm);
+
+      h3 {
+        font-size: var(--font-size-xs);
+      }
+    }
+
+    &__controls button {
+      padding: var(--space-xs);
+      font-size: var(--font-size-xs);
+    }
+  }
+
+  .debug-log-entry {
+    flex-direction: column;
+    gap: var(--space-xs);
+
+    &__time,
+    &__level,
+    &__category {
+      min-width: auto;
+    }
+  }
+}

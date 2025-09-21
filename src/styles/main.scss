@@ -23,6 +23,7 @@
 // 3.5. Components - Individual UI components
 @use 'components/auth';
 @use 'components/timeline';
+@use 'components/debug-logger';
 
 // 4. Molecules - Combinations of atoms
 @use 'molecules/forms';

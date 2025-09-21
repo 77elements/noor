@@ -5,15 +5,18 @@
 
 import { AuthService } from '../../services/AuthService';
 import { TimelineComponent } from '../timeline/TimelineComponent';
+import { DebugLogger } from '../debug/DebugLogger';
 
 export class AuthComponent {
   private element: HTMLElement;
   private authService: AuthService;
+  private debugLogger: DebugLogger;
   private currentUser: { npub: string; pubkey: string } | null = null;
   private timelineComponent: TimelineComponent | null = null;
 
   constructor() {
     this.authService = new AuthService();
+    this.debugLogger = DebugLogger.getInstance();
     this.element = this.createElement();
     this.setupEventListeners();
   }
@@ -117,10 +120,12 @@ export class AuthComponent {
       if (result.success && result.npub && result.pubkey) {
         // Authentication successful - store user and update UI
         this.currentUser = { npub: result.npub, pubkey: result.pubkey };
+        this.debugLogger.info('Auth', 'Logged in successfully via extension');
         this.updateUI();
         this.initializeTimeline();
       } else {
         // Authentication failed
+        this.debugLogger.error('Auth', 'Login failed');
         this.showError(result.error || 'Authentication failed');
         if (loginBtn) {
           loginBtn.disabled = false;

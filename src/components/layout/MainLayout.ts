@@ -4,12 +4,15 @@
  */
 
 import { AuthComponent } from '../auth/AuthComponent';
+import { DebugLogger } from '../debug/DebugLogger';
 
 export class MainLayout {
   private element: HTMLElement;
+  private debugLogger: DebugLogger;
 
   constructor() {
     this.element = this.createElement();
+    this.debugLogger = DebugLogger.getInstance();
     this.initializeContent();
   }
 
@@ -44,26 +47,8 @@ export class MainLayout {
 
       <aside class="secondary-content">
         <div class="content-wrapper">
-          <h2>Secondary Content</h2>
-          <p>50% width of main container</p>
-          <div class="widget-placeholder">
-            <div class="widget">
-              <h4>Trending</h4>
-              <ul>
-                <li>#nostr</li>
-                <li>#bitcoin</li>
-                <li>#decentralized</li>
-              </ul>
-            </div>
-            <div class="widget">
-              <h4>Suggested Users</h4>
-              <ul>
-                <li>@user1</li>
-                <li>@user2</li>
-                <li>@user3</li>
-              </ul>
-            </div>
-          </div>
+          <h2>System Log</h2>
+          <!-- Debug Logger will be mounted here -->
         </div>
       </aside>
     `;
@@ -109,7 +94,7 @@ export class MainLayout {
   }
 
   /**
-   * Initialize primary content with auth component
+   * Initialize primary content with auth component and secondary content with debug logger
    */
   private initializeContent(): void {
     // Create and mount auth component in primary content
@@ -118,6 +103,16 @@ export class MainLayout {
     if (primaryContent) {
       primaryContent.appendChild(authComponent.getElement());
     }
+
+    // Mount debug logger in secondary content
+    const secondaryContent = this.element.querySelector('.secondary-content .content-wrapper');
+    if (secondaryContent) {
+      secondaryContent.appendChild(this.debugLogger.getElement());
+    }
+
+    // Add initial log messages
+    this.debugLogger.info('System', 'Noornote application started');
+    this.debugLogger.debug('Layout', 'MainLayout initialized with DebugLogger');
   }
 
   /**
