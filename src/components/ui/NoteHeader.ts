@@ -156,12 +156,42 @@ export class NoteHeader {
     const now = Math.floor(Date.now() / 1000);
     const diff = now - timestamp;
 
+    // For recent posts, show relative time
     if (diff < 60) return `${diff}s`;
     if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
 
-    return new Date(timestamp * 1000).toLocaleDateString();
+    // For posts older than 1 hour, show absolute date/time
+    const date = new Date(timestamp * 1000);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Check if it's today
+    if (date.toDateString() === today.toDateString()) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Check if it's yesterday
+    if (date.toDateString() === yesterday.toDateString()) {
+      return `Yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    // Check if it's this year
+    if (date.getFullYear() === today.getFullYear()) {
+      return date.toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    // Older posts: full date
+    return date.toLocaleDateString([], {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   }
 
   /**

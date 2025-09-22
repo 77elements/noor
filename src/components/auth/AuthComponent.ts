@@ -4,7 +4,7 @@
  */
 
 import { AuthService } from '../../services/AuthService';
-import { TimelineComponent } from '../timeline/TimelineComponent';
+import { TimelineUI } from '../timeline/TimelineUI';
 import { DebugLogger } from '../debug/DebugLogger';
 
 // Forward declaration to avoid circular dependency
@@ -19,7 +19,7 @@ export class AuthComponent {
   private debugLogger: DebugLogger;
   private mainLayout: MainLayoutInterface | null = null;
   private currentUser: { npub: string; pubkey: string } | null = null;
-  private timelineComponent: TimelineComponent | null = null;
+  private timelineComponent: TimelineUI | null = null;
 
   constructor(mainLayout?: MainLayoutInterface) {
     this.authService = new AuthService();
@@ -225,7 +225,8 @@ export class AuthComponent {
     const timelineContainer = this.element.querySelector('.timeline-container');
     if (timelineContainer) {
       // Create and mount timeline component
-      this.timelineComponent = new TimelineComponent(this.currentUser.pubkey);
+      // TODO: This is architectural debt - AuthComponent shouldn't manage Timeline
+      this.timelineComponent = new TimelineUI(this.currentUser.pubkey);
       timelineContainer.appendChild(this.timelineComponent.getElement());
     }
   }

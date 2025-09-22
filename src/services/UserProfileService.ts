@@ -3,7 +3,8 @@
  * Resolves user pubkeys to usernames, profile pictures, and metadata
  */
 
-import { NostrClient, NostrEvent } from './NostrClient';
+import { UserService } from './UserService';
+import type { Event as NostrEvent } from 'nostr-tools';
 
 export interface UserProfile {
   pubkey: string;
@@ -24,13 +25,13 @@ export interface UserProfile {
 export class UserProfileService {
   private static instance: UserProfileService;
   private profileCache: Map<string, UserProfile> = new Map();
-  private nostrClient: NostrClient;
+  private userService: UserService;
   private fetchingProfiles: Map<string, Promise<UserProfile>> = new Map();
   private storageKey = 'noornote_profile_cache';
   private profileUpdateCallbacks: Map<string, Set<(profile: UserProfile) => void>> = new Map();
 
   private constructor() {
-    this.nostrClient = NostrClient.getInstance();
+    this.userService = UserService.getInstance();
     this.loadFromStorage();
 
     // Clean old cache entries (older than 24 hours)
@@ -179,7 +180,7 @@ export class UserProfileService {
       const subscriptionId = `profile_${pubkey}_${Date.now()}`;
 
       // Subscribe to profile events
-      this.nostrClient.subscribe(subscriptionId, { authors: [pubkey], kinds: [0] }, (event: NostrEvent) => {
+      this.userService.subscribe(subscriptionId, { authors: [pubkey], kinds: [0] }, (event: NostrEvent) => {
         if (event.kind === 0 && event.pubkey === pubkey && !hasResponse) {
           try {
             const metadata = JSON.parse(event.content);
@@ -231,7 +232,7 @@ export class UserProfileService {
       const subscriptionId = `profiles_batch_${Date.now()}`;
 
       // Subscribe to all profile events
-      this.nostrClient.subscribe(subscriptionId, { authors: pubkeys, kinds: [0] }, (event: NostrEvent) => {
+      this.userService.subscribe(subscriptionId, { authors: pubkeys, kinds: [0] }, (event: NostrEvent) => {
         if (event.kind === 0 && pubkeys.includes(event.pubkey)) {
           try {
             const metadata = JSON.parse(event.content);

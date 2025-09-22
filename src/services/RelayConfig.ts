@@ -201,6 +201,18 @@ export class RelayConfig {
   }
 
   /**
+   * Get fallback following list when user has no follows
+   */
+  public getFallbackFollowing(): string[] {
+    return [
+      'npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m', // jack
+      'npub12rv5lskctqxxs2c8rf2zlzc7xx3qpvzs3w4etgemauy9thegr43sf485vg', // fiatjaf
+      'npub1az9xj85cmxv8e9j9y80lvqp97crsqdu2fpu3srwthd99qfu9qsgstam8y8', // vitor
+      'npub1g53mukxnjkcmr94fhryzkqutdz2ukq4ks0gvy5af25rgmwsl4ngq43drvk'  // odell
+    ];
+  }
+
+  /**
    * Load configuration from localStorage
    */
   private loadFromStorage(): void {

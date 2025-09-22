@@ -158,6 +158,30 @@ export class RelayDiscoveryService {
   }
 
   /**
+   * Get combined relay list: standard + optional outbound relays
+   */
+  public async getCombinedRelays(pubkeys: string[], includeOutbound: boolean = true): Promise<string[]> {
+    const standardRelays = this.relayConfig.getReadRelays();
+
+    if (!includeOutbound) {
+      console.log(`📡 RELAY DISCOVERY: Using ${standardRelays.length} standard relays only`);
+      return standardRelays;
+    }
+
+    try {
+      const relayLists = await this.discoverUserRelays(pubkeys);
+      const outboundRelays = this.getOutboundRelays(relayLists);
+      const combined = [...standardRelays, ...outboundRelays];
+
+      console.log(`📡 RELAY DISCOVERY: ${standardRelays.length} standard + ${outboundRelays.length} outbound = ${combined.length} total relays`);
+      return combined;
+    } catch (error) {
+      console.error('⚠️ Outbound relay discovery failed, using standard relays only:', error);
+      return standardRelays;
+    }
+  }
+
+  /**
    * Parse NIP-65 relay list event and extract relay information
    */
   private parseRelayListEvent(event: NostrEvent): UserRelayList | null {
@@ -231,63 +255,59 @@ export class RelayDiscoveryService {
 
   /**
    * Check if relay meets quality standards for outbound discovery
-   * Filters out known problematic relays and localhost/test relays
+   * Uses RelayConfig's known relays as trusted base, minimal filtering
    */
   private isQualityRelay(url: string): boolean {
     try {
       const parsed = new URL(url);
       const hostname = parsed.hostname.toLowerCase();
 
-      // Filter out localhost and development relays
+      // Check if this relay is already in our RelayConfig (automatically trusted)
+      const configuredRelays = this.relayConfig.getAllRelays();
+      const isConfiguredRelay = configuredRelays.some(relay => {
+        try {
+          const configUrl = new URL(relay.url);
+          return configUrl.hostname.toLowerCase() === hostname;
+        } catch {
+          return false;
+        }
+      });
+
+      if (isConfiguredRelay) {
+        return true;
+      }
+
+      // Check RelayConfig fallback relays (also trusted)
+      const fallbackRelays = this.relayConfig.getFallbackRelays();
+      const isFallbackRelay = fallbackRelays.some(relay => {
+        try {
+          const fallbackUrl = new URL(relay);
+          return fallbackUrl.hostname.toLowerCase() === hostname;
+        } catch {
+          return false;
+        }
+      });
+
+      if (isFallbackRelay) {
+        return true;
+      }
+
+      // Only filter out clearly local/test relays
       if (hostname === 'localhost' ||
           hostname === '127.0.0.1' ||
           hostname.startsWith('192.168.') ||
           hostname.startsWith('10.') ||
-          hostname.includes('test') ||
-          hostname.includes('dev')) {
+          hostname.includes('.local') ||
+          hostname.startsWith('test.') ||
+          hostname.startsWith('dev.') ||
+          hostname.startsWith('staging.')) {
         return false;
       }
 
-      // Filter out known problematic relay patterns
-      const problematicPatterns = [
-        'relay.damus.io',  // Often has old test events
-        'relay.snort.social',  // High spam/test content
-        'relay.nostr.band',    // Archive relay with old events
-        'relay.nostrich.de',   // Test relay with corrupted data
-        'localhost',
-        'test',
-        'dev',
-        'staging'
-      ];
-
-      for (const pattern of problematicPatterns) {
-        if (hostname.includes(pattern)) {
-          console.log(`🚫 QUALITY FILTER: Rejected ${url} (pattern: ${pattern})`);
-          return false;
-        }
-      }
-
-      // Allow well-known production relays
-      const trustedPatterns = [
-        'relay.nostr.info',
-        'nos.lol',
-        'relay.primal.net',
-        'relay.current.fyi',
-        'nostr-pub.wellorder.net',
-        'relay.nostr.wirednet.jp',
-        'noornode.nostr1.com'
-      ];
-
-      for (const pattern of trustedPatterns) {
-        if (hostname.includes(pattern)) {
-          return true;
-        }
-      }
-
-      // Default: allow if it looks like a proper domain
+      // Default: accept valid-looking domains (minimal filtering)
       return hostname.includes('.') &&
-             !hostname.includes('localhost') &&
-             hostname.length > 3;
+             hostname.length > 4 &&
+             !hostname.includes('localhost');
 
     } catch {
       return false;

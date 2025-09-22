@@ -28,7 +28,7 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - **THEN AND ONLY THEN** may Claude create a commit
 - **NO COMMITS WITHOUT EXPLICIT USER APPROVAL - EVER!**
 
-### Step 4: Commit (After Approval Only)
+### Step 4: Git Workflow
 - Use mandatory commit format with ✅ TESTED tags
 - Document what user tested and approved
 - Reference user's exact approval words in commit message
@@ -190,3 +190,52 @@ Claude Code: "Brilliant erkannt! Das könnte tatsächlich der Schlüssel sein.
   Danach wurde die Konversation abgebrochen mit der Fehlermeldung:
 
   "API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.130: `tool_use` ids were found without `tool_result` blocks immediately after: toolu_014dTQpCuRsmbHGuxfUVAEuF, toolu_015djWh4tPGpxqSStPkcvZHB, toolu_01MGTgdCSUmifWKy6Xju9zsT, toolu_01S8PCaF2wM8vpBH9REyoYMM, toolu_01V51iHXoJndPHLNJPpd6J5J, toolu_01YKE2cDz6SMbDfyRwtvPr2d. Each `tool_use` block must have a corresponding `tool_result` block in the next message."},"request_id":"req_011CTNMZDdYgqG2Bq9orPQLK"}"
+
+## Current Session Development Status (2025-09-22)
+
+### ✅ **Complete Timeline Architecture Refactor (2025-09-22)**
+
+**Major Breakthrough: Time-Based Infinite Scroll + Modular Architecture**
+
+**Architectural Transformation:**
+- **Deleted NostrClient** and EventAggregationService (monolithic anti-patterns)
+- **Created UserService** for user operations (following lists, subscriptions)
+- **Created EventFetchService** as "dumb executor" with diversity controls
+- **Created TimelineLoader** for initial timeline strategy (1h window)
+- **Created LoadMore** for infinite scroll strategy (1h windows)
+- **Renamed TimelineComponent → TimelineUI** (pure UI, no business logic)
+
+**Revolutionary Timeline Improvements:**
+
+1. **Time-Based Fetching Strategy:**
+   - **Before**: `limit: 6 events per relay` → big timeline gaps
+   - **After**: `timeWindowHours: 1` → seamless 1-hour windows
+   - **Result**: Gapless timeline scrolling, no more 3h→3d jumps
+
+2. **Intelligent Time Display:**
+   - **Before**: `1h`, `2h`, `3h`, `1d` (vague)
+   - **After**: `14:35`, `Yesterday 20:15`, `Sep 20 16:30` (precise)
+   - **Logic**: <1h = relative, >1h = absolute datetime
+
+3. **Self-Removal from Timeline:**
+   - **Bug**: User was auto-added to following list (413 users)
+   - **Fix**: Removed `this.followingPubkeys.push(this.userPubkey)`
+   - **Result**: Clean timeline with only followed users (412 users)
+
+4. **Reposts Integration:**
+   - **Added**: `kinds = [1, 6]` (text notes + reposts)
+   - **Result**: Timeline shows reposts from followed users
+   - **Note**: Need NoteContentProcessing component for proper repost display
+
+**Technical Achievements:**
+- **Bundle optimization**: Reduced from 61.50kB to 58.22kB
+- **Modular design**: Single-responsibility services
+- **Enterprise-level**: No dirty hacks, proper encapsulation
+- **Performance**: 1h time windows = adaptive event loading
+
+**Outstanding Items:**
+- NoteContentProcessing component needed for reposts, quotes, media, links
+- Repost display should show "User reposted Original Author" like Jumble
+- Link previews, image embeds, video embeds for rich content
+
+**User Feedback**: "Ja jetzt mach den commit" - Timeline tested and approved

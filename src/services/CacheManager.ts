@@ -101,7 +101,7 @@ export class CacheManager {
         this.clearProfileCache();
       }
 
-      // Clear event cache if NostrClient is available
+      // Clear event cache
       if (eventCache) {
         this.clearEventCache();
       }
@@ -140,21 +140,11 @@ export class CacheManager {
   }
 
   /**
-   * Clear event cache through NostrClient
+   * Clear event cache (legacy placeholder)
    */
   private clearEventCache(): void {
-    try {
-      // Try to access NostrClient if available
-      const nostrClient = (window as any).nostrClient;
-      if (nostrClient && typeof nostrClient.clearCache === 'function') {
-        nostrClient.clearCache();
-        console.log('✅ Event cache cleared');
-      } else {
-        console.log('ℹ️ NostrClient not available for cache clearing');
-      }
-    } catch (error) {
-      console.warn('⚠️ Failed to clear event cache:', error);
-    }
+    // Event cache clearing is now handled by individual services
+    console.log('ℹ️ Event cache clearing delegated to individual services');
   }
 
   /**

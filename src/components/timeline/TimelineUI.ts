@@ -1,27 +1,34 @@
 /**
- * Timeline Component
- * Displays timeline events with infinite scroll using IntersectionObserver
+ * Timeline UI
+ * Pure UI component for displaying timeline events
+ * Uses TimelineLoader and LoadMore for data fetching
  */
 
-import { NostrClient, NostrEvent } from '../../services/NostrClient';
+import type { Event as NostrEvent } from 'nostr-tools';
+import { TimelineLoader } from '../../services/TimelineLoader';
+import { LoadMore } from '../../services/LoadMore';
+import { UserService } from '../../services/UserService';
 import { NoteHeader } from '../ui/NoteHeader';
 
-export class TimelineComponent {
+export class TimelineUI {
   private element: HTMLElement;
-  private nostrClient: NostrClient;
+  private timelineLoader: TimelineLoader;
+  private loadMore: LoadMore;
+  private userService: UserService;
   private events: NostrEvent[] = [];
   private loading = false;
   private hasMore = true;
-  private showCount = 20; // Start with 20 events like Jumble
   private intersectionObserver: IntersectionObserver | null = null;
   private userPubkey: string;
   private followingPubkeys: string[] = [];
-  private noteHeaders: Map<string, NoteHeader> = new Map(); // Track note headers by event ID
-  private includeReplies = false; // Default: only original notes
+  private noteHeaders: Map<string, NoteHeader> = new Map();
+  private includeReplies = false;
 
   constructor(userPubkey: string) {
     this.userPubkey = userPubkey;
-    this.nostrClient = NostrClient.getInstance();
+    this.timelineLoader = TimelineLoader.getInstance();
+    this.loadMore = LoadMore.getInstance();
+    this.userService = UserService.getInstance();
     this.element = this.createElement();
     this.setupIntersectionObserver();
     this.initializeTimeline();
@@ -108,26 +115,38 @@ export class TimelineComponent {
   }
 
   /**
-   * Initialize timeline loading
+   * Initialize timeline loading - pure UI orchestration
    */
   private async initializeTimeline(): Promise<void> {
     this.loading = true;
     this.showInitialLoading(true);
 
     try {
-      // First connect to relays
-      await this.nostrClient.connectToRelays();
+      // Get following list from UserService
+      this.followingPubkeys = await this.userService.getUserFollowing(this.userPubkey);
 
-      // Fetch user's follow list
-      this.followingPubkeys = await this.nostrClient.getUserFollowing(this.userPubkey);
+      console.log(`📱 TIMELINE UI: Following ${this.followingPubkeys.length} users`);
 
-      // Add user's own pubkey to the list
-      this.followingPubkeys.push(this.userPubkey);
+      if (this.followingPubkeys.length <= 1) {
+        this.showError('No following list found. Please follow some users first.');
+        return;
+      }
 
-      console.log(`Following ${this.followingPubkeys.length} users`);
+      // Use TimelineLoader service (no userPubkey needed since user not in following list)
+      const result = await this.timelineLoader.loadInitialTimeline({
+        userPubkey: '', // Empty since user not included in timeline
+        followingPubkeys: this.followingPubkeys,
+        includeReplies: this.includeReplies
+      });
 
-      // Load initial timeline events
-      await this.loadInitialEvents();
+      this.events = result.events;
+      this.renderEvents();
+
+      if (result.events.length < 20) {
+        this.hasMore = false;
+      }
+
+      console.log(`📱 TIMELINE UI: Loaded ${result.events.length} events from ${result.relaysUsed} relays`);
 
     } catch (error) {
       console.error('Failed to initialize timeline:', error);
@@ -138,47 +157,15 @@ export class TimelineComponent {
     }
   }
 
-  /**
-   * Load initial timeline events
-   */
-  private async loadInitialEvents(): Promise<void> {
-    if (this.followingPubkeys.length === 0) {
-      this.showEmptyState();
-      return;
-    }
-
-    const allEvents = await this.nostrClient.fetchTimelineEvents(
-      this.followingPubkeys,
-      this.showCount * 2, // Fetch more to account for filtering
-      undefined,
-      (event) => {
-        // Real-time event callback - add events as they arrive
-        this.addEventToTimeline(event);
-      }
-    );
-
-    // Filter events based on reply preference
-    const filteredEvents = this.filterEventsByReplyPreference(allEvents);
-
-    console.log(`Loaded ${allEvents.length} events, showing ${filteredEvents.length} (includeReplies: ${this.includeReplies})`);
-
-    this.events = filteredEvents;
-    this.renderEvents();
-
-    if (filteredEvents.length < this.showCount) {
-      this.hasMore = false;
-    }
-  }
 
   /**
-   * Load more events for infinite scroll
+   * Load more events for infinite scroll - pure UI orchestration
    */
   private async loadMoreEvents(): Promise<void> {
     console.log('🔄 INFINITE SCROLL TRIGGERED');
-    console.log(`📊 Current state: loading=${this.loading}, hasMore=${this.hasMore}, followingCount=${this.followingPubkeys.length}, eventsCount=${this.events.length}`);
 
     if (this.loading || !this.hasMore || this.followingPubkeys.length === 0) {
-      console.log('❌ Infinite scroll blocked:', { loading: this.loading, hasMore: this.hasMore, followingCount: this.followingPubkeys.length });
+      console.log('❌ Infinite scroll blocked:', { loading: this.loading, hasMore: this.hasMore });
       return;
     }
 
@@ -187,93 +174,47 @@ export class TimelineComponent {
 
     try {
       const oldestEvent = this.events[this.events.length - 1];
-      const until = oldestEvent ? oldestEvent.created_at : undefined;
+      if (!oldestEvent) {
+        console.log('⚠️ No oldest event found');
+        this.hasMore = false;
+        return;
+      }
 
-      console.log(`📅 Oldest event timestamp: ${until} (${oldestEvent ? new Date(until * 1000).toISOString() : 'undefined'})`);
-      console.log(`🔍 Fetching events older than timestamp ${until} from ${this.followingPubkeys.length} authors`);
+      console.log(`📅 Loading events older than: ${new Date(oldestEvent.created_at * 1000).toISOString()}`);
 
-      const allNewEvents = await this.nostrClient.fetchTimelineEvents(
-        this.followingPubkeys,
-        this.showCount * 2, // Fetch more to account for filtering
-        until
+      // Use LoadMore service (no userPubkey needed since user not in following list)
+      const result = await this.loadMore.loadMoreEvents({
+        userPubkey: '', // Empty since user not included in timeline
+        followingPubkeys: this.followingPubkeys,
+        oldestEventTimestamp: oldestEvent.created_at,
+        includeReplies: this.includeReplies
+      });
+
+      // Filter out duplicates and add new events
+      const uniqueNewEvents = result.events.filter(
+        newEvent => !this.events.some(existing => existing.id === newEvent.id)
       );
 
-      console.log(`📥 RAW FETCH RESULT: ${allNewEvents.length} events received`);
-
-      if (allNewEvents.length > 0) {
-        // Log a few sample timestamps
-        const sampleEvents = allNewEvents.slice(0, 3);
-        console.log('📋 Sample fetched events:', sampleEvents.map(e => ({
-          id: e.id.slice(0, 8),
-          created_at: e.created_at,
-          date: new Date(e.created_at * 1000).toISOString(),
-          isOlderThanUntil: until ? e.created_at < until : 'N/A'
-        })));
-
-        // Filter new events based on reply preference
-        const filteredNewEvents = this.filterEventsByReplyPreference(allNewEvents);
-        console.log(`🔍 AFTER REPLY FILTER: ${filteredNewEvents.length} events (includeReplies: ${this.includeReplies})`);
-
-        // Filter out duplicates and add new events
-        const uniqueNewEvents = filteredNewEvents.filter(
-          newEvent => !this.events.some(existing => existing.id === newEvent.id)
-        );
-
-        console.log(`✅ UNIQUE NEW EVENTS: ${uniqueNewEvents.length} events after deduplication`);
-
-        if (uniqueNewEvents.length > 0) {
-          console.log('📝 Adding events to timeline and re-rendering...');
-          this.events.push(...uniqueNewEvents);
-          this.events.sort((a, b) => b.created_at - a.created_at);
-          this.renderEvents();
-          console.log(`📊 TIMELINE UPDATED: Now showing ${this.events.length} total events`);
-        } else {
-          console.log('⚠️ No unique events to add (all were duplicates)');
-        }
-
-        // Stop infinite scroll if we didn't get enough raw events
-        if (allNewEvents.length < this.showCount) {
-          this.hasMore = false;
-          console.log(`🛑 Infinite scroll stopped - only got ${allNewEvents.length} events, expected ${this.showCount}`);
-        }
+      if (uniqueNewEvents.length > 0) {
+        console.log(`📝 Adding ${uniqueNewEvents.length} new events to timeline`);
+        this.events.push(...uniqueNewEvents);
+        this.events.sort((a, b) => b.created_at - a.created_at);
+        this.renderEvents();
       } else {
-        this.hasMore = false;
-        console.log('🛑 Infinite scroll stopped - no events returned from relays');
+        console.log('⚠️ No unique events to add (all were duplicates)');
       }
+
+      this.hasMore = result.hasMore;
+      console.log(`📱 LOAD MORE UI: ${uniqueNewEvents.length} new events, hasMore: ${this.hasMore}`);
 
     } catch (error) {
       console.error('💥 INFINITE SCROLL ERROR:', error);
     } finally {
       this.loading = false;
       this.showMoreLoading(false);
-      console.log('🏁 Infinite scroll operation completed');
     }
   }
 
-  /**
-   * Filter events based on reply preference
-   */
-  private filterEventsByReplyPreference(events: NostrEvent[]): NostrEvent[] {
-    if (this.includeReplies) {
-      // Show all events (original notes + replies)
-      return events;
-    } else {
-      // Show only original notes (filter out replies)
-      return events.filter(event => !this.isReply(event));
-    }
-  }
-
-  /**
-   * Check if an event is a reply
-   */
-  private isReply(event: NostrEvent): boolean {
-    // An event is considered a reply if it has 'e' tags (references to other events)
-    // or 'reply' tags pointing to other events
-    return event.tags.some(tag =>
-      tag[0] === 'e' || // Event reference tag
-      (tag[0] === 'p' && tag[3] === 'reply') // Reply to user tag
-    );
-  }
 
   /**
    * Add a single event to timeline (for real-time updates)
@@ -282,12 +223,6 @@ export class TimelineComponent {
     // Check if event already exists
     if (this.events.some(existing => existing.id === event.id)) {
       return;
-    }
-
-    // Apply reply filter to real-time events too
-    const filteredEvents = this.filterEventsByReplyPreference([event]);
-    if (filteredEvents.length === 0) {
-      return; // Event filtered out
     }
 
     this.events.unshift(event);
@@ -309,17 +244,14 @@ export class TimelineComponent {
     // Clear existing events
     eventsContainer.innerHTML = '';
 
-    // Get filtered events based on current preference
-    const filteredEvents = this.filterEventsByReplyPreference(this.events);
-
-    // Render ALL filtered events (for infinite scroll)
-    filteredEvents.forEach((event, index) => {
+    // Render all events (filtering already done in services)
+    this.events.forEach((event, index) => {
       const eventElement = this.createEventElement(event, index);
       eventsContainer.appendChild(eventElement);
     });
 
     // Hide empty state if we have events
-    if (filteredEvents.length > 0) {
+    if (this.events.length > 0) {
       this.hideEmptyState();
     }
   }
@@ -427,11 +359,9 @@ export class TimelineComponent {
     // Update include replies flag
     this.includeReplies = selectedView === 'latest-replies';
 
-    // Don't refresh - just re-filter existing events
-    const filteredEvents = this.filterEventsByReplyPreference(this.events);
-    console.log(`Re-filtering existing ${this.events.length} events, showing ${filteredEvents.length} (includeReplies: ${this.includeReplies})`);
-
-    this.renderEvents();
+    // Reload timeline with new filter setting
+    console.log(`Reloading timeline with includeReplies: ${this.includeReplies}`);
+    await this.handleRefresh();
   }
 
   /**
