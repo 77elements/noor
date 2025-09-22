@@ -6,16 +6,23 @@
 import { AuthComponent } from '../auth/AuthComponent';
 import { DebugLogger } from '../debug/DebugLogger';
 import { UserStatus } from '../ui/UserStatus';
+import { CacheControl } from '../ui/CacheControl';
 
 export class MainLayout {
   private element: HTMLElement;
   private debugLogger: DebugLogger;
   private userStatus: UserStatus | null = null;
   private authComponent: any = null; // Store reference to trigger logout
+  private cacheControl: CacheControl;
 
   constructor() {
     this.element = this.createElement();
     this.debugLogger = DebugLogger.getInstance();
+    this.cacheControl = new CacheControl({
+      style: 'button',
+      showStats: true,
+      showClearButton: true
+    });
     this.initializeContent();
   }
 
@@ -39,6 +46,9 @@ export class MainLayout {
           </ul>
           <div class="sidebar-footer">
             <p>User Info</p>
+            <div class="cache-control-container">
+              <!-- Cache control will be mounted here -->
+            </div>
           </div>
         </div>
       </aside>
@@ -172,6 +182,12 @@ export class MainLayout {
       secondaryBody.appendChild(this.debugLogger.getElement());
     }
 
+    // Mount cache control in sidebar footer
+    const cacheContainer = this.element.querySelector('.cache-control-container');
+    if (cacheContainer) {
+      cacheContainer.appendChild(this.cacheControl.getElement());
+    }
+
     // Add initial log messages
     this.debugLogger.info('System', 'Noornote application started');
     this.debugLogger.debug('Layout', 'MainLayout initialized with DebugLogger');
@@ -181,6 +197,12 @@ export class MainLayout {
    * Cleanup resources
    */
   public destroy(): void {
+    if (this.userStatus) {
+      this.userStatus.destroy();
+    }
+    if (this.cacheControl) {
+      this.cacheControl.destroy();
+    }
     this.element.remove();
   }
 }
