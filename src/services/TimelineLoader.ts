@@ -19,6 +19,7 @@ export interface TimelineLoadResult {
   events: NostrEvent[];
   totalFetched: number;
   relaysUsed: number;
+  hasMore: boolean;
 }
 
 export class TimelineLoader {
@@ -84,7 +85,8 @@ export class TimelineLoader {
     return {
       events: filteredEvents,
       totalFetched,
-      relaysUsed
+      relaysUsed,
+      hasMore: events.length >= 20 // Has more if we got a full batch
     };
   }
 

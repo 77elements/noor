@@ -86,6 +86,7 @@ export interface QuotedReference {
 export class NoteContentProcessing {
   private static instance: NoteContentProcessing;
   private userProfileService: UserProfileService;
+  private profileCache: Map<string, any> = new Map(); // Simple cache for profiles
 
   private constructor() {
     this.userProfileService = UserProfileService.getInstance();
@@ -140,7 +141,8 @@ export class NoteContentProcessing {
    * Process regular text note (kind 1)
    */
   private async processTextNote(event: NostrEvent): Promise<ProcessedNote> {
-    const authorProfile = await this.userProfileService.getUserProfile(event.pubkey);
+    // Load profile non-blocking with fallback
+    const authorProfile = this.getNonBlockingProfile(event.pubkey);
 
     // Check if this is a quote post (has 'q' tags)
     const quoteTags = event.tags.filter(tag => tag[0] === 'q');
@@ -177,7 +179,7 @@ export class NoteContentProcessing {
    * Process repost (kind 6)
    */
   private async processRepost(event: NostrEvent): Promise<ProcessedNote> {
-    const reposterProfile = await this.userProfileService.getUserProfile(event.pubkey);
+    const reposterProfile = this.getNonBlockingProfile(event.pubkey);
 
     // Extract original event info from tags
     const originalEventId = this.extractOriginalEventId(event);
@@ -187,7 +189,7 @@ export class NoteContentProcessing {
 
     let originalAuthorProfile;
     if (originalAuthorPubkey) {
-      originalAuthorProfile = await this.userProfileService.getUserProfile(originalAuthorPubkey);
+      originalAuthorProfile = this.getNonBlockingProfile(originalAuthorPubkey);
     }
 
     // Try to parse original event from content
@@ -394,7 +396,7 @@ export class NoteContentProcessing {
     for (const npub of npubs) {
       // TODO: Convert npub to hex pubkey
       const pubkey = npub; // Placeholder - need bech32 decoding
-      const profile = await this.userProfileService.getUserProfile(pubkey);
+      const profile = this.getNonBlockingProfile(pubkey);
 
       mentions.push({
         pubkey: pubkey,
@@ -493,5 +495,41 @@ export class NoteContentProcessing {
       );
     });
     return html;
+  }
+
+  /**
+   * Get profile non-blocking with immediate fallback
+   */
+  private getNonBlockingProfile(pubkey: string): any {
+    // Check cache first
+    if (this.profileCache.has(pubkey)) {
+      return this.profileCache.get(pubkey);
+    }
+
+    // Create fallback profile immediately
+    const fallbackProfile = {
+      pubkey,
+      name: pubkey.slice(0, 8) + '...',
+      display_name: null,
+      picture: '', // Will use DiceBear fallback in UI
+      about: null
+    };
+
+    // Cache the fallback
+    this.profileCache.set(pubkey, fallbackProfile);
+
+    // Load real profile in background (non-blocking)
+    this.userProfileService.getUserProfile(pubkey)
+      .then(realProfile => {
+        if (realProfile) {
+          this.profileCache.set(pubkey, realProfile);
+          // TODO: Could trigger UI update here if needed
+        }
+      })
+      .catch(error => {
+        console.warn(`Profile load failed for ${pubkey.slice(0, 8)}:`, error);
+      });
+
+    return fallbackProfile;
   }
 }

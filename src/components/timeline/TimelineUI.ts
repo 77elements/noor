@@ -101,10 +101,17 @@ export class TimelineUI {
     this.intersectionObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          console.log(`🎯 INTERSECTION: isIntersecting=${entry.isIntersecting}, loading=${this.loading}, hasMore=${this.hasMore}`);
+          console.log(`🎯 INTERSECTION: isIntersecting=${entry.isIntersecting}, loading=${this.loading}, hasMore=${this.hasMore}, followingCount=${this.followingPubkeys.length}, eventsCount=${this.events.length}`);
           if (entry.isIntersecting && !this.loading && this.hasMore) {
             console.log('✅ INTERSECTION TRIGGER: Starting loadMoreEvents');
             this.loadMoreEvents();
+          } else {
+            console.log('❌ INTERSECTION BLOCKED:', {
+              isIntersecting: entry.isIntersecting,
+              loading: this.loading,
+              hasMore: this.hasMore,
+              followingCount: this.followingPubkeys.length
+            });
           }
         });
       },
@@ -145,7 +152,7 @@ export class TimelineUI {
       this.events = result.events;
       await this.renderEvents();
 
-      this.hasMore = result.events.length >= 20;
+      this.hasMore = result.hasMore;
 
       console.log(`📱 TIMELINE UI: Loaded ${result.events.length} events from ${result.relaysUsed} relays`);
 
@@ -196,13 +203,22 @@ export class TimelineUI {
         newEvent => !this.events.some(existing => existing.id === newEvent.id)
       );
 
+      console.log(`🔍 LOAD MORE DEBUG: ${result.events.length} total events, ${uniqueNewEvents.length} unique events`);
+      console.log(`🔍 FIRST FEW LOADED:`, result.events.slice(0, 3).map(e => ({
+        id: e.id.slice(0, 8),
+        time: new Date(e.created_at * 1000).toLocaleTimeString(),
+        content: e.content.slice(0, 30)
+      })));
+
       if (uniqueNewEvents.length > 0) {
         console.log(`📝 Adding ${uniqueNewEvents.length} new events to timeline`);
         this.events.push(...uniqueNewEvents);
         this.events.sort((a, b) => b.created_at - a.created_at);
-        await this.renderEvents();
+        await this.appendNewEvents(uniqueNewEvents);
       } else {
         console.log('⚠️ No unique events to add (all were duplicates)');
+        console.log(`🔍 EXISTING IDs:`, this.events.slice(0, 5).map(e => e.id.slice(0, 8)));
+        console.log(`🔍 NEW IDs:`, result.events.slice(0, 5).map(e => e.id.slice(0, 8)));
       }
 
       this.hasMore = result.hasMore;
@@ -236,7 +252,55 @@ export class TimelineUI {
   }
 
   /**
-   * Render all events using NoteUI components
+   * Append new events to timeline without clearing existing DOM
+   * Uses batching + streaming for better performance
+   */
+  private async appendNewEvents(newEvents: NostrEvent[]): Promise<void> {
+    const eventsContainer = this.element.querySelector('.timeline-events');
+    if (!eventsContainer) return;
+
+    console.log(`➕ APPENDING ${newEvents.length} new events to timeline`);
+
+    const BATCH_SIZE = 3; // Process 3 events at a time
+    let processedCount = 0;
+
+    // Process events in batches with streaming
+    for (let i = 0; i < newEvents.length; i += BATCH_SIZE) {
+      const batch = newEvents.slice(i, i + BATCH_SIZE);
+
+      console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newEvents.length / BATCH_SIZE)} (${batch.length} events)`);
+
+      try {
+        // Process batch in parallel
+        const batchPromises = batch.map((event, index) =>
+          this.createNoteElement(event, i + index)
+        );
+
+        const batchElements = await Promise.all(batchPromises);
+
+        // Immediately append each element as it's ready (streaming)
+        batchElements.forEach(noteElement => {
+          eventsContainer.appendChild(noteElement);
+          processedCount++;
+        });
+
+        console.log(`✅ Batch complete: ${processedCount}/${newEvents.length} events appended`);
+
+        // Small delay between batches to avoid blocking UI
+        if (i + BATCH_SIZE < newEvents.length) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
+      } catch (error) {
+        console.error(`❌ Error processing batch starting at ${i}:`, error);
+      }
+    }
+
+    console.log(`📱 TIMELINE: Finished appending ${processedCount} events (total: ${this.events.length})`);
+  }
+
+  /**
+   * Render all events using NoteUI components (full refresh)
    */
   private async renderEvents(): Promise<void> {
     const eventsContainer = this.element.querySelector('.timeline-events');

@@ -60,6 +60,7 @@ export class NoteNesting {
           <img src="${authorPicture}"
                alt="${authorName}"
                class="author-avatar"
+               loading="lazy"
                onerror="this.src='https://api.dicebear.com/7.x/identicon/svg?seed=${note.author?.pubkey || 'default'}'">
           <div class="author-details">
             <span class="author-name">${authorName}</span>
@@ -106,6 +107,7 @@ export class NoteNesting {
           <img src="${authorPicture}"
                alt="${authorName}"
                class="author-avatar author-avatar-small"
+               loading="lazy"
                onerror="this.src='https://api.dicebear.com/7.x/identicon/svg?seed=${note.author?.pubkey || 'default'}'">
           <div class="author-details">
             <span class="author-name">${authorName}</span>

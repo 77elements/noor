@@ -59,10 +59,10 @@ export class LoadMore {
 
     if (allRelays.length > 0) {
       const result = await this.eventFetch.fetchEvents({
-        timeWindowHours: 1, // Fetch events from last 1 hour before oldest timestamp
+        timeWindowHours: 1, // Fetch next 1-hour window going backwards
         relays: allRelays,
         authors: followingPubkeys,
-        until: oldestEventTimestamp
+        until: oldestEventTimestamp - 1 // Start 1 second before oldest to avoid overlap
       });
 
       result.events.forEach(event => {
