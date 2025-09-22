@@ -9,13 +9,16 @@ import { TimelineLoader } from '../../services/TimelineLoader';
 import { LoadMore } from '../../services/LoadMore';
 import { UserService } from '../../services/UserService';
 import { NoteHeader } from '../ui/NoteHeader';
+import { NoteContentProcessing, ProcessedNote } from '../content/NoteContentProcessing';
 
 export class TimelineUI {
   private element: HTMLElement;
   private timelineLoader: TimelineLoader;
   private loadMore: LoadMore;
   private userService: UserService;
+  private noteProcessor: NoteContentProcessing;
   private events: NostrEvent[] = [];
+  private processedNotes: ProcessedNote[] = [];
   private loading = false;
   private hasMore = true;
   private intersectionObserver: IntersectionObserver | null = null;
@@ -29,6 +32,7 @@ export class TimelineUI {
     this.timelineLoader = TimelineLoader.getInstance();
     this.loadMore = LoadMore.getInstance();
     this.userService = UserService.getInstance();
+    this.noteProcessor = NoteContentProcessing.getInstance();
     this.element = this.createElement();
     this.setupIntersectionObserver();
     this.initializeTimeline();
@@ -140,7 +144,7 @@ export class TimelineUI {
       });
 
       this.events = result.events;
-      this.renderEvents();
+      await this.processAndRenderEvents();
 
       if (result.events.length < 20) {
         this.hasMore = false;
@@ -199,7 +203,7 @@ export class TimelineUI {
         console.log(`📝 Adding ${uniqueNewEvents.length} new events to timeline`);
         this.events.push(...uniqueNewEvents);
         this.events.sort((a, b) => b.created_at - a.created_at);
-        this.renderEvents();
+        await this.processAndRenderEvents();
       } else {
         console.log('⚠️ No unique events to add (all were duplicates)');
       }
@@ -219,7 +223,7 @@ export class TimelineUI {
   /**
    * Add a single event to timeline (for real-time updates)
    */
-  private addEventToTimeline(event: NostrEvent): void {
+  private async addEventToTimeline(event: NostrEvent): Promise<void> {
     // Check if event already exists
     if (this.events.some(existing => existing.id === event.id)) {
       return;
@@ -230,12 +234,57 @@ export class TimelineUI {
 
     // Re-render if not too many events (performance optimization)
     if (this.events.length < 200) {
+      await this.processAndRenderEvents();
+    }
+  }
+
+  /**
+   * Process all events through NoteContentProcessing and render
+   */
+  private async processAndRenderEvents(): Promise<void> {
+    console.log(`🔄 PROCESSING ${this.events.length} events through NoteContentProcessing`);
+
+    // Process all events in parallel for performance
+    const processingPromises = this.events.map(event =>
+      this.noteProcessor.processNote(event)
+    );
+
+    try {
+      this.processedNotes = await Promise.all(processingPromises);
+      console.log(`✅ PROCESSED ${this.processedNotes.length} notes`);
+      this.renderProcessedNotes();
+    } catch (error) {
+      console.error('❌ Error processing notes:', error);
+      console.error('Stack trace:', error.stack);
+      // Fallback to original render method
       this.renderEvents();
     }
   }
 
   /**
-   * Render timeline events
+   * Render processed notes with enhanced display
+   */
+  private renderProcessedNotes(): void {
+    const eventsContainer = this.element.querySelector('.timeline-events');
+    if (!eventsContainer) return;
+
+    // Clear existing events
+    eventsContainer.innerHTML = '';
+
+    // Render all processed notes
+    this.processedNotes.forEach((note, index) => {
+      const noteElement = this.createProcessedNoteElement(note, index);
+      eventsContainer.appendChild(noteElement);
+    });
+
+    // Hide empty state if we have events
+    if (this.processedNotes.length > 0) {
+      this.hideEmptyState();
+    }
+  }
+
+  /**
+   * Legacy render method for fallback
    */
   private renderEvents(): void {
     const eventsContainer = this.element.querySelector('.timeline-events');
@@ -257,7 +306,163 @@ export class TimelineUI {
   }
 
   /**
-   * Create individual event element using reusable NoteHeader component
+   * Create element for processed note with enhanced display
+   */
+  private createProcessedNoteElement(note: ProcessedNote, index: number): HTMLElement {
+    const noteDiv = document.createElement('div');
+    noteDiv.className = `timeline-event timeline-${note.type}`;
+    noteDiv.dataset.eventId = note.id;
+
+    // Handle different note types
+    switch (note.type) {
+      case 'repost':
+        return this.createRepostElement(note);
+      case 'quote':
+        return this.createQuoteElement(note);
+      default:
+        return this.createOriginalNoteElement(note);
+    }
+  }
+
+  /**
+   * Create repost element with "User reposted" display
+   */
+  private createRepostElement(note: ProcessedNote): HTMLElement {
+    const repostDiv = document.createElement('div');
+    repostDiv.className = 'timeline-event timeline-repost';
+    repostDiv.dataset.eventId = note.id;
+
+    // Repost header showing who reposted
+    const reposterName = note.reposter?.profile?.display_name ||
+                        note.reposter?.profile?.name ||
+                        note.reposter?.pubkey.slice(0, 8) || 'Unknown';
+
+    const repostHeader = document.createElement('div');
+    repostHeader.className = 'repost-header';
+    repostHeader.innerHTML = `
+      <span class="repost-icon">🔄</span>
+      <span class="reposter-name">${reposterName} reposted</span>
+    `;
+
+    // Original note content with original author
+    const originalNoteElement = this.createOriginalNoteElement(note);
+
+    repostDiv.appendChild(repostHeader);
+    repostDiv.appendChild(originalNoteElement);
+
+    return repostDiv;
+  }
+
+  /**
+   * Create quote element with quoted content
+   */
+  private createQuoteElement(note: ProcessedNote): HTMLElement {
+    // For now, treat quotes like original notes
+    // TODO: Add quoted content display
+    return this.createOriginalNoteElement(note);
+  }
+
+  /**
+   * Create original note element
+   */
+  private createOriginalNoteElement(note: ProcessedNote): HTMLElement {
+    const noteDiv = document.createElement('div');
+    noteDiv.className = 'timeline-event timeline-original';
+    noteDiv.dataset.eventId = note.id;
+
+    // Create note header component
+    const noteHeader = new NoteHeader({
+      pubkey: note.author.pubkey,
+      timestamp: note.timestamp,
+      size: 'medium',
+      showVerification: true,
+      showTimestamp: true,
+      onClick: (pubkey: string) => {
+        console.log('Profile clicked:', pubkey);
+      }
+    });
+
+    // Store reference for cleanup
+    this.noteHeaders.set(note.id, noteHeader);
+
+    // Check for long content
+    const hasLong = this.hasLongContent(note.content.text);
+    const contentClass = hasLong ? 'event-content has-long-content' : 'event-content';
+
+    // Create note structure with processed content
+    noteDiv.innerHTML = `
+      <div class="event-header-container">
+        <!-- Note header will be inserted here -->
+      </div>
+      <div class="${contentClass}">
+        ${note.content.html}
+      </div>
+      ${this.renderMediaContent(note.content.media)}
+      ${this.renderLinks(note.content.links)}
+      <div class="event-footer">
+        <span class="event-kind">Kind ${note.rawEvent.kind}</span>
+        <span class="event-id">${note.id.slice(0, 8)}...</span>
+      </div>
+    `;
+
+    // Mount note header
+    const headerContainer = noteDiv.querySelector('.event-header-container');
+    if (headerContainer) {
+      headerContainer.appendChild(noteHeader.getElement());
+    }
+
+    return noteDiv;
+  }
+
+  /**
+   * Render media content (images, videos)
+   */
+  private renderMediaContent(media: ProcessedNote['content']['media']): string {
+    if (media.length === 0) return '';
+
+    const mediaHtml = media.map(item => {
+      switch (item.type) {
+        case 'image':
+          return `<img src="${item.url}" alt="${item.alt || ''}" class="note-image" loading="lazy">`;
+        case 'video':
+          if (item.thumbnail) {
+            // YouTube or video with thumbnail
+            return `
+              <div class="note-video">
+                <img src="${item.thumbnail}" alt="Video thumbnail" class="video-thumbnail">
+                <a href="${item.url}" target="_blank" class="video-link">▶️ Watch Video</a>
+              </div>
+            `;
+          } else {
+            return `<video src="${item.url}" controls class="note-video" preload="metadata"></video>`;
+          }
+        default:
+          return '';
+      }
+    }).join('');
+
+    return `<div class="note-media">${mediaHtml}</div>`;
+  }
+
+  /**
+   * Render link previews
+   */
+  private renderLinks(links: ProcessedNote['content']['links']): string {
+    if (links.length === 0) return '';
+
+    const linksHtml = links.map(link => `
+      <div class="note-link-preview">
+        <a href="${link.url}" target="_blank" rel="noopener">
+          ${link.title || link.domain}
+        </a>
+      </div>
+    `).join('');
+
+    return `<div class="note-links">${linksHtml}</div>`;
+  }
+
+  /**
+   * Legacy method - create individual event element using reusable NoteHeader component
    */
   private createEventElement(event: NostrEvent, index: number): HTMLElement {
     const eventDiv = document.createElement('div');
