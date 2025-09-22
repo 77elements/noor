@@ -40,6 +40,7 @@ export interface ProcessedNote {
     links: LinkPreview[];
     mentions: Mention[];
     hashtags: string[];
+    quotedReferences: QuotedReference[];
   };
 
   // Original event reference
@@ -73,6 +74,13 @@ export interface Mention {
     display_name?: string;
     picture?: string;
   };
+}
+
+export interface QuotedReference {
+  type: 'event' | 'note' | 'addr';
+  id: string;
+  fullMatch: string;
+  quotedNote?: ProcessedNote; // The quoted note if we can fetch it
 }
 
 export class NoteContentProcessing {
@@ -120,7 +128,8 @@ export class NoteContentProcessing {
           media: [],
           links: [],
           mentions: [],
-          hashtags: []
+          hashtags: [],
+          quotedReferences: []
         },
         rawEvent: event
       };
@@ -236,12 +245,22 @@ export class NoteContentProcessing {
     const links = this.extractLinks(text);
     const mentions = await this.extractMentions(text);
     const hashtags = this.extractHashtags(text);
+    const quotedRefs = this.extractQuotedReferences(text);
+
+    // Convert quoted references to full objects
+    const quotedReferences: QuotedReference[] = quotedRefs.map(ref => ({
+      type: ref.type as 'event' | 'note' | 'addr',
+      id: ref.id,
+      fullMatch: ref.fullMatch
+      // quotedNote will be fetched later if needed
+    }));
 
     // Create HTML version with processing
     let html = this.escapeHtml(text);
     html = this.linkifyUrls(html);
     html = this.formatMentions(html, mentions);
     html = this.formatHashtags(html, hashtags);
+    html = this.formatQuotedReferences(html, quotedReferences);
     html = html.replace(/\n/g, '<br>');
 
     return {
@@ -250,7 +269,8 @@ export class NoteContentProcessing {
       media,
       links,
       mentions,
-      hashtags
+      hashtags,
+      quotedReferences
     };
   }
 
@@ -297,7 +317,7 @@ export class NoteContentProcessing {
   }
 
   /**
-   * Extract and categorize links
+   * Extract and categorize links, including nostr references
    */
   private extractLinks(text: string): LinkPreview[] {
     const links: LinkPreview[] = [];
@@ -317,6 +337,48 @@ export class NoteContentProcessing {
     });
 
     return links;
+  }
+
+  /**
+   * Extract quoted nostr references from content
+   */
+  private extractQuotedReferences(text: string): { type: string; id: string; fullMatch: string }[] {
+    const quotes: { type: string; id: string; fullMatch: string }[] = [];
+
+    // nostr:event1... references
+    const eventRegex = /nostr:event1[a-z0-9]{58}/gi;
+    const eventMatches = text.match(eventRegex) || [];
+    eventMatches.forEach(match => {
+      quotes.push({
+        type: 'event',
+        id: match.replace('nostr:event1', ''),
+        fullMatch: match
+      });
+    });
+
+    // nostr:note1... references
+    const noteRegex = /nostr:note1[a-z0-9]{58}/gi;
+    const noteMatches = text.match(noteRegex) || [];
+    noteMatches.forEach(match => {
+      quotes.push({
+        type: 'note',
+        id: match.replace('nostr:note1', ''),
+        fullMatch: match
+      });
+    });
+
+    // nostr:addr1... references
+    const addrRegex = /nostr:addr1[a-z0-9]+/gi;
+    const addrMatches = text.match(addrRegex) || [];
+    addrMatches.forEach(match => {
+      quotes.push({
+        type: 'addr',
+        id: match.replace('nostr:addr1', ''),
+        fullMatch: match
+      });
+    });
+
+    return quotes;
   }
 
   /**
@@ -412,6 +474,22 @@ export class NoteContentProcessing {
       html = html.replace(
         new RegExp(`#${tag}`, 'g'),
         `<span class="hashtag" data-tag="${tag}">#${tag}</span>`
+      );
+    });
+    return html;
+  }
+
+  /**
+   * Format quoted references as placeholder elements
+   */
+  private formatQuotedReferences(html: string, quotedReferences: QuotedReference[]): string {
+    quotedReferences.forEach(ref => {
+      // Replace the nostr reference with a placeholder that will be rendered as a quote box
+      html = html.replace(
+        ref.fullMatch,
+        `<div class="quoted-reference" data-type="${ref.type}" data-id="${ref.id}">
+          [Quoted ${ref.type}: ${ref.id.slice(0, 8)}...]
+         </div>`
       );
     });
     return html;

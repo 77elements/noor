@@ -89,18 +89,28 @@ export class TimelineLoader {
   }
 
   /**
-   * Simple reply filtering - replies start with @username or npub
+   * Enhanced reply filtering - checks content AND tags for reply indicators
    */
   private filterReplies(events: NostrEvent[]): NostrEvent[] {
     return events.filter(event => {
       const content = event.content.trim();
 
-      // Reply = starts with @username or npub
+      // 1. Content-based detection: starts with @username or npub
       if (content.match(/^@\w+/) || content.startsWith('npub1')) {
+        console.log(`🚫 REPLY FILTERED (content): ${event.id.slice(0, 8)} - "${content.slice(0, 50)}..."`);
         return false; // This is a reply
       }
 
-      return true; // Everything else belongs in timeline (originals, reposts, quotes)
+      // 2. Tag-based detection: has 'e' tags (reply to event)
+      const eTags = event.tags.filter(tag => tag[0] === 'e');
+      if (eTags.length > 0) {
+        console.log(`🚫 REPLY FILTERED (e-tags): ${event.id.slice(0, 8)} - ${eTags.length} e-tags`);
+        return false; // This is a reply to another event
+      }
+
+      // 3. Allow: reposts (kind 6), quotes, and original posts
+      console.log(`✅ TIMELINE INCLUDED: ${event.id.slice(0, 8)} - kind ${event.kind}`);
+      return true;
     });
   }
 }
