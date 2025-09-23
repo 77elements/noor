@@ -57,9 +57,9 @@ export class EventFetchService {
     const diversityMode = userPubkey && maxUserEventsPerRelay !== undefined;
 
     if (isTimeBased) {
-      console.log(`🕐 FETCH SERVICE: Events from last ${timeWindowHours}h from ${relays.length} relays ${diversityMode ? '(diversity mode)' : ''}`);
+      // console.log(`🕐 FETCH SERVICE: Events from last ${timeWindowHours}h from ${relays.length} relays ${diversityMode ? '(diversity mode)' : ''}`);
     } else {
-      console.log(`🔧 FETCH SERVICE: ${eventsPerRelay} events per relay from ${relays.length} relays ${diversityMode ? '(diversity mode)' : ''}`);
+      // console.log(`🔧 FETCH SERVICE: ${eventsPerRelay} events per relay from ${relays.length} relays ${diversityMode ? '(diversity mode)' : ''}`);
     }
 
     const allEvents: Map<string, NostrEvent> = new Map();
@@ -180,7 +180,7 @@ export class EventFetchService {
     const events = Array.from(allEvents.values());
     events.sort((a, b) => b.created_at - a.created_at);
 
-    console.log(`✅ FETCH SERVICE: ${events.length} total unique events from ${relays.length} relays`);
+    // console.log(`✅ FETCH SERVICE: ${events.length} total unique events from ${relays.length} relays`);
 
     return { events, relayStats };
   }

@@ -191,12 +191,12 @@ export class TimelineUI {
         newEvent => !this.events.some(existing => existing.id === newEvent.id)
       );
 
-      console.log(`🔍 LOAD MORE DEBUG: ${result.events.length} total events, ${uniqueNewEvents.length} unique events`);
-      console.log(`🔍 FIRST FEW LOADED:`, result.events.slice(0, 3).map(e => ({
-        id: e.id.slice(0, 8),
-        time: new Date(e.created_at * 1000).toLocaleTimeString(),
-        content: e.content.slice(0, 30)
-      })));
+      // console.log(`🔍 LOAD MORE DEBUG: ${result.events.length} total events, ${uniqueNewEvents.length} unique events`);
+      // console.log(`🔍 FIRST FEW LOADED:`, result.events.slice(0, 3).map(e => ({
+      //   id: e.id.slice(0, 8),
+      //   time: new Date(e.created_at * 1000).toLocaleTimeString(),
+      //   content: e.content.slice(0, 30)
+      // })));
 
       if (uniqueNewEvents.length > 0) {
         console.log(`📝 Adding ${uniqueNewEvents.length} new events to timeline`);
@@ -256,7 +256,7 @@ export class TimelineUI {
     for (let i = 0; i < newEvents.length; i += BATCH_SIZE) {
       const batch = newEvents.slice(i, i + BATCH_SIZE);
 
-      console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newEvents.length / BATCH_SIZE)} (${batch.length} events)`);
+      // console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newEvents.length / BATCH_SIZE)} (${batch.length} events)`);
 
       try {
         // Process batch in parallel
@@ -272,7 +272,7 @@ export class TimelineUI {
           processedCount++;
         });
 
-        console.log(`✅ Batch complete: ${processedCount}/${newEvents.length} events appended`);
+        // console.log(`✅ Batch complete: ${processedCount}/${newEvents.length} events appended`);
 
         // Small delay between batches to avoid blocking UI
         if (i + BATCH_SIZE < newEvents.length) {

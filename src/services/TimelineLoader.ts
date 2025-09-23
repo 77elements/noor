@@ -71,7 +71,7 @@ export class TimelineLoader {
 
       totalFetched += result.events.length;
       relaysUsed += allRelays.length;
-      console.log(`📡 COMBINED RELAYS: ${result.events.length} events from ${allRelays.length} relays (standard + outbound)`);
+      // console.log(`📡 COMBINED RELAYS: ${result.events.length} events from ${allRelays.length} relays (standard + outbound)`);
     }
 
     // Sort and filter

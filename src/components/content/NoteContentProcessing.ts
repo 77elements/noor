@@ -168,7 +168,7 @@ export class NoteContentProcessing {
     // If it's a quote, try to fetch the quoted event
     if (isQuote && quoteTags[0] && quoteTags[0][1]) {
       // TODO: Implement quoted event fetching
-      console.log(`📝 Quote detected: ${quoteTags[0][1].slice(0, 8)}`);
+      // console.log(`📝 Quote detected: ${quoteTags[0][1].slice(0, 8)}`);
     }
 
     return result;

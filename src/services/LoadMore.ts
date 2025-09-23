@@ -73,7 +73,7 @@ export class LoadMore {
 
       totalFetched += result.events.length;
       relaysUsed += allRelays.length;
-      console.log(`📡 LOAD MORE COMBINED: ${result.events.length} events from ${allRelays.length} relays (standard + outbound)`);
+      // console.log(`📡 LOAD MORE COMBINED: ${result.events.length} events from ${allRelays.length} relays (standard + outbound)`);
     }
 
     // Sort and filter
