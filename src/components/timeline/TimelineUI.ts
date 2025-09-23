@@ -10,6 +10,7 @@ import { LoadMore } from '../../services/LoadMore';
 import { UserService } from '../../services/UserService';
 import { NoteHeader } from '../ui/NoteHeader';
 import { NoteUI } from '../ui/NoteUI';
+import { InfiniteScroll } from '../ui/InfiniteScroll';
 
 export class TimelineUI {
   private element: HTMLElement;
@@ -19,7 +20,7 @@ export class TimelineUI {
   private events: NostrEvent[] = [];
   private loading = false;
   private hasMore = true;
-  private intersectionObserver: IntersectionObserver | null = null;
+  private infiniteScroll: InfiniteScroll;
   private userPubkey: string;
   private followingPubkeys: string[] = [];
   private noteHeaders: Map<string, NoteHeader> = new Map();
@@ -31,7 +32,8 @@ export class TimelineUI {
     this.loadMore = LoadMore.getInstance();
     this.userService = UserService.getInstance();
     this.element = this.createElement();
-    this.setupIntersectionObserver();
+    this.infiniteScroll = new InfiniteScroll(() => this.handleLoadMore());
+    this.setupInfiniteScroll();
     this.initializeTimeline();
   }
 
@@ -92,36 +94,22 @@ export class TimelineUI {
   }
 
   /**
-   * Setup IntersectionObserver for infinite scroll
+   * Setup infinite scroll component
    */
-  private setupIntersectionObserver(): void {
-    const loadTrigger = this.element.querySelector('.timeline-load-trigger');
-    if (!loadTrigger) return;
+  private setupInfiniteScroll(): void {
+    const loadTrigger = this.element.querySelector('.timeline-load-trigger') as HTMLElement;
+    if (loadTrigger) {
+      this.infiniteScroll.observe(loadTrigger);
+    }
+  }
 
-    this.intersectionObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          console.log(`🎯 INTERSECTION: isIntersecting=${entry.isIntersecting}, loading=${this.loading}, hasMore=${this.hasMore}, followingCount=${this.followingPubkeys.length}, eventsCount=${this.events.length}`);
-          if (entry.isIntersecting && !this.loading && this.hasMore) {
-            console.log('✅ INTERSECTION TRIGGER: Starting loadMoreEvents');
-            this.loadMoreEvents();
-          } else {
-            console.log('❌ INTERSECTION BLOCKED:', {
-              isIntersecting: entry.isIntersecting,
-              loading: this.loading,
-              hasMore: this.hasMore,
-              followingCount: this.followingPubkeys.length
-            });
-          }
-        });
-      },
-      {
-        rootMargin: '100px', // Start loading 100px before reaching the trigger
-        threshold: 0.1
-      }
-    );
-
-    this.intersectionObserver.observe(loadTrigger);
+  /**
+   * Handle load more request from infinite scroll component
+   */
+  private handleLoadMore(): void {
+    if (!this.loading && this.hasMore && this.followingPubkeys.length > 0) {
+      this.loadMoreEvents();
+    }
   }
 
   /**

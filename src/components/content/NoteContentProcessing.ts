@@ -103,7 +103,6 @@ export class NoteContentProcessing {
    * Main processing entry point - processes any note type
    */
   public async processNote(event: NostrEvent): Promise<ProcessedNote> {
-    console.log(`🔄 PROCESSING NOTE: kind ${event.kind}, id ${event.id.slice(0, 8)}`);
 
     try {
       switch (event.kind) {

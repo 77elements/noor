@@ -59,7 +59,7 @@ export class LoadMore {
 
     if (allRelays.length > 0) {
       const result = await this.eventFetch.fetchEvents({
-        timeWindowHours: 1, // Fetch next 1-hour window going backwards
+        timeWindowHours: 3, // Larger window to ensure more events (was 1 hour)
         relays: allRelays,
         authors: followingPubkeys,
         until: oldestEventTimestamp - 1 // Start 1 second before oldest to avoid overlap
@@ -82,9 +82,9 @@ export class LoadMore {
 
     const filteredEvents = includeReplies ? events : this.filterReplies(events);
 
-    // Determine if there are more events to load based on raw fetch results
-    // Don't base hasMore on filtered events - reply filtering might remove most events
-    const hasMore = events.length >= 20; // Stop if we got fewer than 20 raw events
+    // Always continue - never give up! If no events in this window, try next window
+    // There's always more history to explore on Nostr
+    const hasMore = true;
 
     console.log(`✅ LOAD MORE: ${filteredEvents.length} events (${events.length} total, hasMore: ${hasMore})`);
 
@@ -105,19 +105,16 @@ export class LoadMore {
 
       // 1. Content-based detection: starts with @username or npub
       if (content.match(/^@\w+/) || content.startsWith('npub1')) {
-        console.log(`🚫 REPLY FILTERED (content): ${event.id.slice(0, 8)} - "${content.slice(0, 50)}..."`);
         return false; // This is a reply
       }
 
       // 2. Tag-based detection: has 'e' tags (reply to event)
       const eTags = event.tags.filter(tag => tag[0] === 'e');
       if (eTags.length > 0) {
-        console.log(`🚫 REPLY FILTERED (e-tags): ${event.id.slice(0, 8)} - ${eTags.length} e-tags`);
         return false; // This is a reply to another event
       }
 
       // 3. Allow: reposts (kind 6), quotes, and original posts
-      console.log(`✅ TIMELINE INCLUDED: ${event.id.slice(0, 8)} - kind ${event.kind}`);
       return true;
     });
   }

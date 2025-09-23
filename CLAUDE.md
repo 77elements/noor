@@ -87,261 +87,98 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 # 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY
 # ═══════════════════════════════════════════════════════════════
 
-## Current Session Development Status (2025-09-21)
+## Current Session Development Status (2025-09-23)
 
-### ✅ **SimplePool + nostr-tools Integration Complete (2025-09-21)**
+### ✅ **Infinite Scroll Performance Fix + Bundle Size Analysis (2025-09-23)**
 
-**Major Architecture Fix:**
-- **Problem**: Was using custom WebSocket implementation instead of documented SimplePool
-- **Solution**: Complete rewrite of NostrClient using SimplePool from nostr-tools
-- **Impact**: Timeline loads significantly faster, proper profile loading architecture
+**Performance Fix Completed:**
+- **Problem**: 10-20+ second loading times in infinite scroll
+- **Solution**: Non-blocking profile loading in NoteContentProcessing
+- **Result**: Consistent 1-2 second loading times
+- **User Feedback**: "Ok, jeder Nachladevorgang jetzt bei 1-2 Sekunden. Scheint was gebrahct zu haben"
 
-**Technical Changes:**
-- **NostrClient.ts**: Completely rewritten with SimplePool and nostr-tools types
-- **TimelineComponent.ts**: Updated method calls (connectToRelays, getUserFollowing)
-- **Cleanup**: Removed old WebSocket directories (/relay, /nostr)
-- **Bundle**: Now properly includes 32KB nostr-tools vendor chunk
+**Bundle Size Growth Analysis:**
+- **Previous**: ~60kB total bundle
+- **Current**: 75.65kB main + 32.01kB vendor = 107.66kB total (33.44kB gzipped)
+- **Growth**: +15kB for complete Rich Content System (25% size increase)
 
-**Current Status:**
-- ✅ Timeline loads much faster with SimplePool
-- ✅ Most profile pictures load correctly (~80%+ success rate)
-- ⚠️ Some profiles still show DiceBear fallbacks despite having real images
-- ⚠️ Profile cache issues remain unresolved
+**Feature Density Justification:**
+- ✅ Professional repost display like Jumble ("🔄 User reposted")
+- ✅ Note-in-Note verschachtelung (5-level depth with NoteNesting)
+- ✅ Media embeds (images, videos, YouTube thumbnails)
+- ✅ Rich text formatting (links, mentions, hashtags)
+- ✅ Performance-optimized profile caching
+- ✅ Enterprise-level Atomic Design architecture
 
-**User Feedback:** "Timeline loads much faster, most profile pictures work"
+**Bundle Size Concerns:**
+- **Current**: 20% of 500kB target after only 2-3 days development
+- **Risk**: Many more features planned, bundle growth trajectory concerning
+- **Need**: Performance and bundle size optimization strategy
 
-### ✅ **Infinite Scroll Implementation Fixed (2025-09-21)**
+**Next Session Priorities:**
+1. **Bundle Analysis**: Identify optimization opportunities
+2. **Tree Shaking**: Eliminate dead code and redundant imports
+3. **Code Splitting**: Strategic lazy loading where possible
+4. **CSS Optimization**: 31kB CSS chunk review
+5. **Tech Stack Evaluation**: Consider VanillaJS → SPA framework migration
+6. **Performance Strategy**: Sustainable growth for future features
 
-**Major Bug:**
+**Tech Stack Migration Consideration:**
+- **Current Challenge**: VanillaJS bundle growth (20% after 2-3 days)
+- **SPA Framework Benefits**: Better tree shaking, optimized bundling, component reuse
+- **Primary Candidate**: **Svelte** (compiles to VanillaJS, minimal runtime)
+- **Alternative**: Preact (React-like, smaller than Vue)
+- **Rejected**: Vue (bloated according to user preference)
+- **Trade-offs**: Framework overhead vs. manual DOM manipulation bloat
+- **Decision Point**: Evaluate if Svelte bundle + features < current trajectory
 
-Die User-Diversität nimmt bei zunehmenden Infinite Scrolls ab, ist in den Debug Logs zu sehen. 
+**Technical Debt Items:**
+- Debug log cleanup completed (removed verbose processing logs)
+- SASS deprecation warnings (lighten/darken functions) - cosmetic only
+- Bundle growth monitoring needed for future development
 
-**Lösungsansatz (noch unversucht)**
-
-User: "ich weiß, nicht klingt alles nach dirty hacks. Entweder wir verschwenden Events, schmeißen sie einfach weg oder wir haben zu viele Requests. Es gibt etwas, fällt mir ein, was Amthyst, der beste Nostr Client unter Android, neuerdings macht, es nennt sich "outbound relays". Es lädt die Relays aller User, denen man selber folgt, temporär in die Relay-Liste des Users, um noch mehr Events zu laden. Etwa, wenn ein user, dem ich folge, einen Note repostet, von einem User, den ich nciht kenne, weil er kein Rleay aus meinem Set benutzt. Wäre das villeicht der Grund dafür?"
-
-Claude Code: "Brilliant erkannt! Das könnte tatsächlich der Schlüssel sein.
-
-  Outbound Relays Konzept:
-  - Lade die Relay-Listen der gefolgten User
-  - Erweitere temporär dein Relay-Set um deren Relays
-  - Dadurch erreichst du Events von Usern außerhalb deines Relay-Ökosystems
-
-  Warum das das Problem lösen würde:
-  - Deine Events sind auf deinen Standard-Relays überrepräsentiert
-  - Events anderer User sind möglicherweise auf deren bevorzugten Relays
-  - Ohne deren Relays = weniger Diversität in deiner Timeline
-
-  Mögliche Jumble-Strategie:
-  Jumble könnte automatisch:
-  1. Relay-Listen der gefolgten User laden (NIP-65)
-  2. Diese Relays temporär in den Pool aufnehmen
-  3. Dadurch bessere Author-Diversität erreichen
-
-  Das würde erklären:
-  - Warum gleiche Relay-Config trotzdem unterschiedliche Ergebnisse liefert
-  - Warum das Problem nach längerer Inaktivität auftritt (veraltete Relay-Discovery)
-  - Warum Amethyst/Jumble bessere Diversität haben
-
-  Frage: Sollen wir das implementieren? Oder erstmal prüfen, ob Jumble wirklich NIP-65 (Relay List Metadata) verwendet?
-
-  Das wäre definitiv kein Hack, sondern echte Nostr-Protocol-Optimierung!"
-
-  User: "Ja, wir sollten es zumindest mal versuchen und gucken, was passiert. Recherchiere mal die "outbound relays" Funktionalität von Amethyst auf github vorher, verstehe das Konzept im Detail, bevor du es umsetzt."
-
-  Claude Code: "Perfekt! Jetzt verstehe ich das Konzept im Detail:
-
-  NIP-65: Relay List Metadata - Das Outbound Relays Konzept
-
-  Wie es funktioniert:
-
-  1. Jeder User publiziert seine bevorzugten Relays in kind:10002 Events
-  2. Write Relays: Wo der User seine Events schreibt
-  3. Read Relays: Wo der User Mentions/Replies liest
-  4. Clients sollen diese Listen nutzen für optimale Event-Discovery
-
-  Konkrete Implementation-Strategie:
-
-  Phase 1: Relay Lists laden
-  // Für jeden User in followingPubkeys:
-  // 1. Lade dessen kind:10002 Event (Relay List)
-  // 2. Extrahiere write/read relays
-  // 3. Erweitere temporär unser Relay-Set
-
-  Phase 2: Intelligentes Fetching
-  // Beim Timeline-Fetch:
-  // 1. Verwende Standard-Relays + gefundene Write-Relays
-  // 2. Das erhöht die Chance auf diverse Events
-
-  Warum das funktioniert:
-
-  - Deine Events sind auf deinen Write-Relays
-  - Events anderer User sind auf deren Write-Relays
-  - Ohne deren Relays = weniger Diversität
-
-  Amethyst Umsetzung:
-
-  Amethyst nutzt das "Outbox Model" mit NIP-65 - daher die bessere Author-Diversität!
-
-  Soll ich das implementieren? Es würde erklären, warum Jumble/Amethyst besser funktionieren!"
-
-  User: "Ja, aber dabei schön modular entwickeln und kapselung beachten. Wir könnten so ein zentrales Feature auch an anderer Stelle brauchen."
-
-  Danach wurde die Konversation abgebrochen mit der Fehlermeldung:
-
-  "API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.130: `tool_use` ids were found without `tool_result` blocks immediately after: toolu_014dTQpCuRsmbHGuxfUVAEuF, toolu_015djWh4tPGpxqSStPkcvZHB, toolu_01MGTgdCSUmifWKy6Xju9zsT, toolu_01S8PCaF2wM8vpBH9REyoYMM, toolu_01V51iHXoJndPHLNJPpd6J5J, toolu_01YKE2cDz6SMbDfyRwtvPr2d. Each `tool_use` block must have a corresponding `tool_result` block in the next message."},"request_id":"req_011CTNMZDdYgqG2Bq9orPQLK"}"
-
-## Current Session Development Status (2025-09-22)
-
-### ✅ **Complete Timeline Architecture Refactor (2025-09-22)**
-
-**Major Breakthrough: Time-Based Infinite Scroll + Modular Architecture**
-
-**Architectural Transformation:**
-- **Deleted NostrClient** and EventAggregationService (monolithic anti-patterns)
-- **Created UserService** for user operations (following lists, subscriptions)
-- **Created EventFetchService** as "dumb executor" with diversity controls
-- **Created TimelineLoader** for initial timeline strategy (1h window)
-- **Created LoadMore** for infinite scroll strategy (1h windows)
-- **Renamed TimelineComponent → TimelineUI** (pure UI, no business logic)
-
-**Revolutionary Timeline Improvements:**
-
-1. **Time-Based Fetching Strategy:**
-   - **Before**: `limit: 6 events per relay` → big timeline gaps
-   - **After**: `timeWindowHours: 1` → seamless 1-hour windows
-   - **Result**: Gapless timeline scrolling, no more 3h→3d jumps
-
-2. **Intelligent Time Display:**
-   - **Before**: `1h`, `2h`, `3h`, `1d` (vague)
-   - **After**: `14:35`, `Yesterday 20:15`, `Sep 20 16:30` (precise)
-   - **Logic**: <1h = relative, >1h = absolute datetime
-
-3. **Self-Removal from Timeline:**
-   - **Bug**: User was auto-added to following list (413 users)
-   - **Fix**: Removed `this.followingPubkeys.push(this.userPubkey)`
-   - **Result**: Clean timeline with only followed users (412 users)
-
-4. **Reposts Integration:**
-   - **Added**: `kinds = [1, 6]` (text notes + reposts)
-   - **Result**: Timeline shows reposts from followed users
-   - **Note**: Need NoteContentProcessing component for proper repost display
-
-**Technical Achievements:**
-- **Bundle optimization**: Reduced from 61.50kB to 58.22kB
-- **Modular design**: Single-responsibility services
-- **Enterprise-level**: No dirty hacks, proper encapsulation
-- **Performance**: 1h time windows = adaptive event loading
-
-**Outstanding Items:**
-- NoteContentProcessing component needed for reposts, quotes, media, links
-- Repost display should show "User reposted Original Author" like Jumble
-- Link previews, image embeds, video embeds for rich content
-
-**User Feedback**: "Ja jetzt mach den commit" - Timeline tested and approved
-
-## Current Session Development Status (2025-09-22 - Part 2)
-
-### ✅ **NoteContentProcessing Component Implementation (2025-09-22)**
-
-**Revolutionary Content Processing System:**
+### ✅ **Infinite Scroll Architecture Refactor + Debug Cleanup (2025-09-23)**
 
 **Problem Solved:**
-- **Before**: Reposts showed raw JSON, no rich content processing
-- **After**: Professional content display like Jumble with "🔄 User reposted" format
+- **Issue**: Infinite scroll stopped after 2 triggers due to poor architecture and hasMore logic
+- **Root Cause 1**: Spaghetti code in TimelineUI.ts with IntersectionObserver logic mixed with UI
+- **Root Cause 2**: LoadMore service stopped at <20 events, ignoring sparse timelines (night, few followings)
 
-**Technical Implementation:**
+**Architecture Refactor:**
+- **Created InfiniteScroll.ts**: Dedicated component for intersection observation
+  - Single responsibility: Detect scroll position and emit events
+  - Configurable debouncing (300ms default), rootMargin (50px), threshold
+  - Clean API: `observe()`, `disconnect()`, `pause()`, `resume()`
+- **Cleaned TimelineUI.ts**: Removed intersection observer spaghetti
+  - Now only coordinates: InfiniteScroll + LoadMore + UI rendering
+  - Proper separation of concerns, modular design
 
-1. **NoteContentProcessing Component (`/src/components/content/NoteContentProcessing.ts`):**
-   - **Universal processor**: All notes pass through single processing pipeline
-   - **Type-specific handling**: Different templates for originals, reposts, quotes
-   - **Rich content extraction**: Images, videos, links, mentions, hashtags
-   - **Profile integration**: Real usernames in reposts via UserProfileService
+**Infinite Scroll Logic Fix:**
+- **timeWindowHours**: Increased from 1h to 3h (more events per fetch)
+- **hasMore Logic**: Changed from `events.length >= 20` to `hasMore = true`
+- **Never Give Up Philosophy**: Always continue loading backward through Nostr history
+- **Sparse Timeline Support**: Works with 1 note per night, few followings
 
-2. **Content Features Implemented:**
-   - 🔄 **Reposts**: "🔄 elsat reposted" with original content display
-   - 🖼️ **Media**: Image embeds with lazy loading, YouTube thumbnails
-   - 🔗 **Links**: Clickable with domain info and previews
-   - 📝 **Rich Text**: HTML-safe formatting, line breaks, mentions/hashtags
-   - 💬 **Quotes**: Framework ready for quoted reposts
+**Debug Log Cleanup:**
+- Removed all verbose intersection observer logs
+- Removed reply filtering debug messages
+- Removed note processing debug messages
+- Clean console output for production use
 
-3. **Timeline Integration:**
-   - **Parallel processing**: All events processed async for performance
-   - **Smart rendering**: Different templates per note type (repost/original/quote)
-   - **Error resilience**: Graceful fallback to legacy render on failures
-   - **Type safety**: Complete TypeScript interfaces for all content types
+**Bundle Impact:**
+- Bundle size: 75.68kB (minimal increase for InfiniteScroll component)
+- Architecture: Enterprise-level modular design
+- Performance: Debounced scroll detection, efficient API usage
 
-**Critical Bug Fixed:**
-- **Error**: `TypeError: this.userProfileService.getProfile is not a function`
-- **Root cause**: Method name mismatch - should be `getUserProfile`
-- **Impact**: Was preventing all note processing, causing fallback to raw JSON display
-- **Fix**: Updated all 4 method calls in NoteContentProcessing
+**User Testing Results:**
+- ✅ Infinite scroll now works continuously without stopping
+- ✅ Handles sparse timelines (1 note scenarios)
+- ✅ Clean console output without debug spam
+- ✅ Proper modular architecture following "each component solves one problem"
 
-**Performance Metrics:**
-- **Bundle size**: 66.67kB (8kB increase for complete rich content system)
-- **Processing speed**: 57 notes processed in parallel successfully
-- **Error rate**: 0% after getUserProfile fix
+**Technical Excellence:**
+- InfiniteScroll component is reusable for any list/timeline
+- TimelineUI.ts is now a clean aggregator as intended
+- LoadMore service focused purely on API strategy
+- Never-give-up mentality perfect for Nostr's distributed nature
 
-**Visual Results:**
-- ✅ **Repost display**: Clean "🔄 User reposted" format like Jumble
-- ✅ **Original content**: Proper author attribution in reposts
-- ✅ **Rich formatting**: Emojis, links, text perfectly displayed
-- ✅ **Error-free logs**: All processing successful, no fallbacks
-
-**User Feedback**: "Ich glaub, sieht ok aus, siehe Screenshot. Keine fehlermeldungen mehr im Log" - NoteContentProcessing approved and working perfectly
-
-## Current Session Development Status (2025-09-22 - Part 3)
-
-### ✅ **Atomic Design Architecture + NoteNesting Implementation (2025-09-22)**
-
-**Revolutionary Modular Refactor:**
-
-**Problem Solved:**
-- **Before**: Timeline had monolithic note rendering with Note-in-Note bugs
-- **After**: Clean Atomic Design with NoteUI (Molekül) + TimelineUI (Organismus) + NoteNesting (universal verschachtelung)
-
-**Technical Implementation:**
-
-1. **NoteUI Component (Molekül):**
-   - **Single responsibility**: HTML assembly for one note
-   - **Input**: `NostrEvent` → **Output**: `HTMLElement`
-   - **Encapsulation**: Own NoteContentProcessing instance, NoteHeader management
-   - **Error handling**: `createErrorNoteElement()` fallback
-   - **Universal**: Handles originals, reposts, quotes through type switching
-
-2. **NoteNesting Component (Universal Verschachtelung):**
-   - **Agnostic design**: Doesn't know it's used for quotes/comments/threads
-   - **Level system**: 0-4 (display) → 5+ ("Click for more..." link)
-   - **Truncation**: 200 characters for levels 1-4
-   - **Recursive**: Beliebige note-in-note verschachtelung
-   - **Universal use**: Quotes, Replies, Threads, Mentions - all Kind-1 events
-
-3. **TimelineUI Cleanup (Organismus):**
-   - **Removed**: All note rendering logic, content processing, legacy methods
-   - **Kept**: Timeline coordination, infinite scroll, event fetching
-   - **Simplified**: `createNoteElement()` → `NoteUI.createNoteElement()`
-   - **Single source**: NoteUI handles all note assembly
-
-**Content Processing Enhancement:**
-- **Added**: `quotedReferences` field to ProcessedNote interface
-- **Enhanced**: `extractQuotedReferences()` for nostr:event1/note1/addr1 parsing
-- **Formatted**: Quoted references as placeholder elements for NoteNesting
-
-**Atomic Design Benefits:**
-- **Modularity**: Components have single responsibilities
-- **Reusability**: NoteUI can be used anywhere (timeline, single view, etc.)
-- **Maintainability**: Clear separation of concerns
-- **Scalability**: Easy to extend with new note types
-
-**Bundle Performance:**
-- **Size**: 74.05kB (+5kB for complete nesting system)
-- **Build**: Successful, zero TypeScript errors
-- **Architecture**: Enterprise-level modularity
-
-**Universal Note-in-Note Support:**
-- ✅ **Quotes**: Original + quoted note with full nesting
-- ✅ **Replies**: Comment threads with 5-level depth
-- ✅ **Mentions**: Notes referencing other notes
-- ✅ **Threads**: Recursive conversation chains
-
-**User Feedback**: "Commit." - Atomic Design architecture approved and ready for production
