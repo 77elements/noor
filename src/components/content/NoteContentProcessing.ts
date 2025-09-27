@@ -342,39 +342,26 @@ export class NoteContentProcessing {
 
   /**
    * Extract quoted nostr references from content
+   * Handles all quote types: nostr:event, nostr:note, nostr:nevent
    */
   private extractQuotedReferences(text: string): { type: string; id: string; fullMatch: string }[] {
     const quotes: { type: string; id: string; fullMatch: string }[] = [];
 
-    // nostr:event1... references
-    const eventRegex = /nostr:event1[a-z0-9]{58}/gi;
-    const eventMatches = text.match(eventRegex) || [];
-    eventMatches.forEach(match => {
-      quotes.push({
-        type: 'event',
-        id: match.replace('nostr:event1', ''),
-        fullMatch: match
-      });
-    });
+    // Single regex to catch all nostr references (event, note, nevent, addr)
+    const nostrRegex = /nostr:(event1[a-z0-9]{58}|note1[a-z0-9]{58}|nevent1[a-z0-9]+|addr1[a-z0-9]+)/gi;
+    const matches = text.match(nostrRegex) || [];
 
-    // nostr:note1... references
-    const noteRegex = /nostr:note1[a-z0-9]{58}/gi;
-    const noteMatches = text.match(noteRegex) || [];
-    noteMatches.forEach(match => {
-      quotes.push({
-        type: 'note',
-        id: match.replace('nostr:note1', ''),
-        fullMatch: match
-      });
-    });
+    matches.forEach(match => {
+      // Determine type from the match
+      let type = 'unknown';
+      if (match.includes('event1')) type = 'event';
+      else if (match.includes('note1')) type = 'note';
+      else if (match.includes('nevent1')) type = 'nevent';
+      else if (match.includes('addr1')) type = 'addr';
 
-    // nostr:addr1... references
-    const addrRegex = /nostr:addr1[a-z0-9]+/gi;
-    const addrMatches = text.match(addrRegex) || [];
-    addrMatches.forEach(match => {
       quotes.push({
-        type: 'addr',
-        id: match.replace('nostr:addr1', ''),
+        type,
+        id: match, // Keep full reference for fetching
         fullMatch: match
       });
     });

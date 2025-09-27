@@ -7,11 +7,12 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import { NoteContentProcessing, ProcessedNote } from '../content/NoteContentProcessing';
 import { NoteHeader } from './NoteHeader';
-import { NoteNesting } from './NoteNesting';
+import { QuoteNoteFetcher } from '../../services/QuoteNoteFetcher';
 
 export class NoteUI {
   private static noteHeaders: Map<string, NoteHeader> = new Map();
   private static noteProcessor: NoteContentProcessing = NoteContentProcessing.getInstance();
+  private static quoteFetcher: QuoteNoteFetcher = QuoteNoteFetcher.getInstance();
 
   /**
    * Create HTML element for any nostr event (processes content internally)
@@ -88,13 +89,64 @@ export class NoteUI {
   }
 
   /**
-   * Create quote element with nested content using NoteNesting
+   * Create quote element with embedded quoted notes
    */
   private static async createQuoteElement(note: ProcessedNote): Promise<HTMLElement> {
-    // Use NoteNesting for recursive quote display
-    // Convert ProcessedNote back to NostrEvent for NoteNesting
-    const event = note.rawEvent;
-    return await NoteNesting.createNestedNote(event, 0);
+    const quoteDiv = document.createElement('div');
+    quoteDiv.className = 'timeline-event timeline-quote';
+    quoteDiv.dataset.eventId = note.id;
+
+    // Create note header for the quote author
+    const noteHeader = new NoteHeader({
+      pubkey: note.author.pubkey,
+      timestamp: note.timestamp,
+      size: 'medium',
+      showVerification: true,
+      showTimestamp: true,
+      onClick: (pubkey: string) => {
+        console.log('Profile clicked:', pubkey);
+      }
+    });
+
+    // Store reference for cleanup
+    NoteUI.noteHeaders.set(note.id, noteHeader);
+
+    // Check for long content
+    const hasLong = NoteUI.hasLongContent(note.content.text);
+    const contentClass = hasLong ? 'event-content has-long-content' : 'event-content';
+
+    // Create quote structure
+    quoteDiv.innerHTML = `
+      <div class="event-header-container">
+        <!-- Quote author header will be inserted here -->
+      </div>
+      <div class="${contentClass}">
+        ${note.content.html}
+      </div>
+      ${NoteUI.renderMediaContent(note.content.media)}
+      ${NoteUI.renderLinks(note.content.links)}
+      <div class="quoted-notes-container">
+        <!-- Quoted notes will be rendered here -->
+      </div>
+      <div class="event-footer">
+        <span class="event-kind">Kind ${note.rawEvent.kind} (Quote)</span>
+        <span class="event-id">${note.id.slice(0, 8)}...</span>
+      </div>
+    `;
+
+    // Mount note header
+    const headerContainer = quoteDiv.querySelector('.event-header-container');
+    if (headerContainer) {
+      headerContainer.appendChild(noteHeader.getElement());
+    }
+
+    // Render quoted notes
+    const quotedContainer = quoteDiv.querySelector('.quoted-notes-container');
+    if (quotedContainer && note.content.quotedReferences.length > 0) {
+      await NoteUI.renderQuotedNotes(note.content.quotedReferences, quotedContainer);
+    }
+
+    return quoteDiv;
   }
 
   /**
@@ -230,6 +282,64 @@ export class NoteUI {
     }).join('');
 
     return `<div class="note-quotes">${quotesHtml}</div>`;
+  }
+
+  /**
+   * Render quoted notes as orange quote boxes
+   */
+  private static async renderQuotedNotes(quotedReferences: ProcessedNote['content']['quotedReferences'], container: Element): Promise<void> {
+    for (const ref of quotedReferences) {
+      try {
+        console.log(`📎 Fetching quoted note: ${ref.fullMatch}`);
+
+        // Fetch the quoted event
+        const quotedEvent = await NoteUI.quoteFetcher.fetchQuotedEvent(ref.fullMatch);
+
+        if (quotedEvent) {
+          // Recursively render the quoted event with NoteUI
+          const quotedNoteElement = await NoteUI.createNoteElement(quotedEvent);
+
+          // Wrap in orange quote box
+          const quoteBox = document.createElement('div');
+          quoteBox.className = 'quote-box';
+          quoteBox.appendChild(quotedNoteElement);
+
+          // Add click handler
+          quoteBox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log(`Expand quoted note: ${quotedEvent.id.slice(0, 8)}`);
+          });
+
+          container.appendChild(quoteBox);
+        } else {
+          // Fallback for failed fetch
+          const fallback = document.createElement('div');
+          fallback.className = 'quote-fallback';
+          fallback.innerHTML = `
+            <div class="quote-fallback-content">
+              <span class="quote-icon">💬</span>
+              <span class="quote-text">Could not load quoted note</span>
+              <small class="quote-ref">${ref.type}: ${ref.id.slice(0, 12)}...</small>
+            </div>
+          `;
+          container.appendChild(fallback);
+        }
+
+      } catch (error) {
+        console.error('❌ Error rendering quoted note:', error);
+
+        // Error fallback
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'quote-error';
+        errorDiv.innerHTML = `
+          <div class="quote-error-content">
+            <span class="error-icon">⚠️</span>
+            <span class="error-text">Quote rendering failed</span>
+          </div>
+        `;
+        container.appendChild(errorDiv);
+      }
+    }
   }
 
   /**

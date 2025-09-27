@@ -287,3 +287,38 @@
     }
   }
 }
+
+/* Quote Box - styled exactly like normal notes */
+.quote-box {
+  margin: 0.75rem 0;
+
+  // No special styling - quoted notes look exactly like normal notes
+  .timeline-event {
+    // Keep all default timeline-event styling
+  }
+}
+
+/* Quote container styling */
+.quoted-notes-container {
+  margin-top: 1rem;
+}
+
+/* Fallback styling */
+.quote-fallback, .quote-error {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+
+  .quote-fallback-content, .quote-error-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-muted);
+
+    .quote-icon, .error-icon {
+      font-size: 1.2rem;
+    }
+  }
+}
