@@ -257,8 +257,23 @@ export class NoteContentProcessing {
       // quotedNote will be fetched later if needed
     }));
 
+    // Remove media URLs from text since they will be rendered separately
+    let cleanedText = text;
+    media.forEach(item => {
+      cleanedText = cleanedText.replace(item.url, '');
+    });
+
+    // Remove quoted references from text since they will be rendered separately
+    quotedReferences.forEach(ref => {
+      cleanedText = cleanedText.replace(ref.fullMatch, '');
+    });
+
+    // Clean up multiple consecutive line breaks (more than 2)
+    cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');
+    cleanedText = cleanedText.trim();
+
     // Use formatContent utility from contentFormatters
-    const html = formatContent(text, mentions, hashtags, quotedReferences);
+    const html = formatContent(cleanedText, mentions, hashtags, quotedReferences);
 
     return {
       text,

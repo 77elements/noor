@@ -8,7 +8,7 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import { NoteContentProcessing, ProcessedNote } from '../content/NoteContentProcessing';
 import { NoteHeader } from './NoteHeader';
 import { QuoteNoteFetcher, type QuoteFetchError } from '../../services/QuoteNoteFetcher';
-import { renderMediaContent, renderLinks, renderQuotedReferencesPlaceholder } from '../../helpers/htmlRenderers';
+import { renderMediaContent, renderQuotedReferencesPlaceholder } from '../../helpers/htmlRenderers';
 
 export class NoteUI {
   private static noteHeaders: Map<string, NoteHeader> = new Map();
@@ -129,72 +129,19 @@ export class NoteUI {
   }
 
   /**
-   * Create quote element with embedded quoted notes
+   * Build note structure (shared logic for quotes and originals)
+   * Eliminates code duplication between createQuoteElement and createOriginalNoteElement
    */
-  private static async createQuoteElement(note: ProcessedNote, depth: number): Promise<HTMLElement> {
-    const quoteDiv = document.createElement('div');
-    quoteDiv.className = 'timeline-event timeline-quote';
-    quoteDiv.dataset.eventId = note.id;
-
-    // Create note header for the quote author
-    const noteHeader = new NoteHeader({
-      pubkey: note.author.pubkey,
-      timestamp: note.timestamp,
-      size: 'medium',
-      showVerification: true,
-      showTimestamp: true,
-      onClick: (pubkey: string) => {
-        console.log('Profile clicked:', pubkey);
-      }
-    });
-
-    // Store reference for cleanup
-    NoteUI.noteHeaders.set(note.id, noteHeader);
-
-    // Check for long content
-    const hasLong = NoteUI.hasLongContent(note.content.text);
-    const contentClass = hasLong ? 'event-content has-long-content' : 'event-content';
-
-    // Create quote structure
-    quoteDiv.innerHTML = `
-      <div class="event-header-container">
-        <!-- Quote author header will be inserted here -->
-      </div>
-      <div class="${contentClass}">
-        ${note.content.html}
-      </div>
-      ${renderMediaContent(note.content.media)}
-      ${renderLinks(note.content.links)}
-      <div class="quoted-notes-container">
-        <!-- Quoted notes will be rendered here -->
-      </div>
-      <div class="event-footer">
-        <span class="event-kind">Kind ${note.rawEvent.kind} (Quote)</span>
-        <span class="event-id">${note.id.slice(0, 8)}...</span>
-      </div>
-    `;
-
-    // Mount note header
-    const headerContainer = quoteDiv.querySelector('.event-header-container');
-    if (headerContainer) {
-      headerContainer.appendChild(noteHeader.getElement());
+  private static buildNoteStructure(
+    note: ProcessedNote,
+    options: {
+      cssClass: string;
+      footerLabel: string;
+      renderQuotedNotes: boolean;
     }
-
-    // Render quoted notes with increased depth
-    const quotedContainer = quoteDiv.querySelector('.quoted-notes-container');
-    if (quotedContainer && note.content.quotedReferences.length > 0) {
-      await NoteUI.renderQuotedNotes(note.content.quotedReferences, quotedContainer, depth + 1);
-    }
-
-    return quoteDiv;
-  }
-
-  /**
-   * Create original note element
-   */
-  private static createOriginalNoteElement(note: ProcessedNote, depth: number): HTMLElement {
+  ): { element: HTMLElement; noteHeader: NoteHeader } {
     const noteDiv = document.createElement('div');
-    noteDiv.className = 'timeline-event timeline-original';
+    noteDiv.className = `timeline-event ${options.cssClass}`;
     noteDiv.dataset.eventId = note.id;
 
     // Create note header component
@@ -209,26 +156,22 @@ export class NoteUI {
       }
     });
 
-    // Store reference for cleanup
-    NoteUI.noteHeaders.set(note.id, noteHeader);
-
     // Check for long content
     const hasLong = NoteUI.hasLongContent(note.content.text);
     const contentClass = hasLong ? 'event-content has-long-content' : 'event-content';
 
-    // Create note structure with processed content
+    // Build HTML structure - different for quotes vs originals
+    const quotedSection = options.renderQuotedNotes
+      ? '<div class="quoted-notes-container"><!-- Quoted notes will be rendered here --></div>'
+      : renderQuotedReferencesPlaceholder(note.content.quotedReferences);
+
     noteDiv.innerHTML = `
-      <div class="event-header-container">
-        <!-- Note header will be inserted here -->
-      </div>
-      <div class="${contentClass}">
-        ${note.content.html}
-      </div>
+      <div class="event-header-container"></div>
+      <div class="${contentClass}">${note.content.html}</div>
       ${renderMediaContent(note.content.media)}
-      ${renderLinks(note.content.links)}
-      ${renderQuotedReferencesPlaceholder(note.content.quotedReferences)}
+      ${quotedSection}
       <div class="event-footer">
-        <span class="event-kind">Kind ${note.rawEvent.kind}</span>
+        <span class="event-kind">Kind ${note.rawEvent.kind}${options.footerLabel ? ` (${options.footerLabel})` : ''}</span>
         <span class="event-id">${note.id.slice(0, 8)}...</span>
       </div>
     `;
@@ -239,7 +182,45 @@ export class NoteUI {
       headerContainer.appendChild(noteHeader.getElement());
     }
 
-    return noteDiv;
+    return { element: noteDiv, noteHeader };
+  }
+
+  /**
+   * Create quote element with embedded quoted notes
+   */
+  private static async createQuoteElement(note: ProcessedNote, depth: number): Promise<HTMLElement> {
+    const { element, noteHeader } = NoteUI.buildNoteStructure(note, {
+      cssClass: 'timeline-quote',
+      footerLabel: 'Quote',
+      renderQuotedNotes: true
+    });
+
+    // Store reference for cleanup
+    NoteUI.noteHeaders.set(note.id, noteHeader);
+
+    // Render quoted notes with increased depth
+    const quotedContainer = element.querySelector('.quoted-notes-container');
+    if (quotedContainer && note.content.quotedReferences.length > 0) {
+      await NoteUI.renderQuotedNotes(note.content.quotedReferences, quotedContainer, depth + 1);
+    }
+
+    return element;
+  }
+
+  /**
+   * Create original note element
+   */
+  private static createOriginalNoteElement(note: ProcessedNote, depth: number): HTMLElement {
+    const { element, noteHeader } = NoteUI.buildNoteStructure(note, {
+      cssClass: 'timeline-original',
+      footerLabel: '',
+      renderQuotedNotes: false
+    });
+
+    // Store reference for cleanup
+    NoteUI.noteHeaders.set(note.id, noteHeader);
+
+    return element;
   }
 
   /**

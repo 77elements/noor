@@ -90,7 +90,6 @@ export function renderNoteContent(content: ProcessedNote['content']): string {
   return `
     ${content.html}
     ${renderMediaContent(content.media)}
-    ${renderLinks(content.links)}
     ${renderQuotedReferencesPlaceholder(content.quotedReferences)}
   `;
 }

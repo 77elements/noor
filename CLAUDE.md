@@ -168,4 +168,44 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
   5. Profile Cache Service
 
   Long-term (When complexity grows):
-  6. Relay URL Utilities7. Timeline State Management
+  6. Relay URL Utilities
+  7. Timeline State Management
+
+---
+
+## Session: 2025-09-30 - Link Duplication Fix & NoteUI Refactoring
+
+### Changes Implemented:
+
+1. **Fixed Media URL Duplication**
+   - Problem: Image/Video URLs appeared twice (in text + below media)
+   - Solution: Modified `NoteContentProcessing.processContent()` to remove media URLs from cleanedText
+   - Also removes quoted references from text to prevent duplication
+
+2. **Fixed Link Duplication**
+   - Problem: Normal hyperlinks appeared twice (full URL + shortened domain)
+   - Solution: Removed `renderLinks()` calls from rendering flow
+   - Links now only appear as clickable hyperlinks in content text
+   - Removed from: `renderNoteContent()` in htmlRenderers.ts, `createQuoteElement()` and `createOriginalNoteElement()` in NoteUI.ts
+
+3. **Major Refactoring: NoteUI Code Deduplication**
+   - Problem: `createQuoteElement()` and `createOriginalNoteElement()` had ~60 lines of duplicated code
+   - Solution: Created central `buildNoteStructure()` helper method
+   - Eliminates duplication for:
+     - NoteHeader creation
+     - Long content checking
+     - HTML structure assembly
+     - Header mounting logic
+   - Reduced both methods from ~50 lines to ~13 lines each
+   - Benefits: Single source of truth, easier maintenance, fewer bugs
+
+### Files Modified:
+- `src/components/content/NoteContentProcessing.ts` - Remove media URLs from text
+- `src/helpers/htmlRenderers.ts` - Remove renderLinks() from renderNoteContent()
+- `src/components/ui/NoteUI.ts` - Add buildNoteStructure(), refactor createQuoteElement/createOriginalNoteElement
+
+### User Testing:
+- Build successful, TypeScript compilation passed
+- Link duplication resolved (no more double links)
+- Media URL duplication resolved (URLs only below media, not in text)
+- Code is cleaner with no dead code (renderLinks() still exists but unused)
