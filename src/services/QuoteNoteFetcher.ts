@@ -2,22 +2,36 @@
  * Quote Note Fetcher
  * Simple service to fetch quoted events from nostr references
  * Handles: nostr:event, nostr:note, nostr:nevent
+ * Uses two-stage fetch: standard relays → outbound relays fallback
  */
 
 import type { Event as NostrEvent, Filter as NostrFilter } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
 import { RelayConfig } from './RelayConfig';
+import { RelayDiscoveryService } from './RelayDiscoveryService';
+
+export type QuoteFetchError =
+  | { type: 'not_found'; message: string; eventId: string }
+  | { type: 'network'; message: string; canRetry: true }
+  | { type: 'parse'; message: string; reference: string }
+  | { type: 'unknown'; message: string };
+
+export type QuoteFetchResult =
+  | { success: true; event: NostrEvent }
+  | { success: false; error: QuoteFetchError };
 
 export class QuoteNoteFetcher {
   private static instance: QuoteNoteFetcher;
   private pool: SimplePool;
   private relayConfig: RelayConfig;
+  private relayDiscovery: RelayDiscoveryService;
   private cache: Map<string, NostrEvent> = new Map();
 
   private constructor() {
     this.pool = new SimplePool();
     this.relayConfig = RelayConfig.getInstance();
+    this.relayDiscovery = RelayDiscoveryService.getInstance();
   }
 
   public static getInstance(): QuoteNoteFetcher {
@@ -28,7 +42,7 @@ export class QuoteNoteFetcher {
   }
 
   /**
-   * Fetch event from nostr reference
+   * Fetch event from nostr reference with detailed error information
    */
   public async fetchQuotedEvent(nostrRef: string): Promise<NostrEvent | null> {
     try {
@@ -62,6 +76,59 @@ export class QuoteNoteFetcher {
     } catch (error) {
       console.error('❌ Error fetching quoted event:', error);
       return null;
+    }
+  }
+
+  /**
+   * Fetch event with detailed error result
+   */
+  public async fetchQuotedEventWithError(nostrRef: string): Promise<QuoteFetchResult> {
+    try {
+      // Check cache first
+      if (this.cache.has(nostrRef)) {
+        return { success: true, event: this.cache.get(nostrRef)! };
+      }
+
+      // Extract event ID
+      const eventId = this.extractEventId(nostrRef);
+      if (!eventId) {
+        return {
+          success: false,
+          error: {
+            type: 'parse',
+            message: 'Invalid note reference format',
+            reference: nostrRef
+          }
+        };
+      }
+
+      // Fetch event
+      const event = await this.fetchEventById(eventId);
+
+      if (event) {
+        this.cache.set(nostrRef, event);
+        return { success: true, event };
+      }
+
+      // Not found after both stages
+      return {
+        success: false,
+        error: {
+          type: 'not_found',
+          message: 'Note not found on any relays',
+          eventId: eventId.slice(0, 12)
+        }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          type: 'network',
+          message: 'Failed to connect to relays',
+          canRetry: true
+        }
+      };
     }
   }
 
@@ -104,23 +171,49 @@ export class QuoteNoteFetcher {
   }
 
   /**
-   * Fetch event by ID from relays
+   * Fetch event by ID from relays with two-stage strategy
+   * Stage 1: Try standard relays
+   * Stage 2: If not found, try standard + outbound relays
    */
   private async fetchEventById(eventId: string): Promise<NostrEvent | null> {
-    const relays = this.relayConfig.getReadRelays();
-
     const filter: NostrFilter = {
       ids: [eventId],
       limit: 1
     };
 
+    // Stage 1: Try standard relays first
+    console.log(`📡 Stage 1: Fetching from standard relays...`);
+    const standardRelays = this.relayConfig.getReadRelays();
+
     try {
-      const events = await this.pool.list(relays, [filter]);
-      return events.length > 0 ? events[0] : null;
+      const events = await this.pool.list(standardRelays, [filter]);
+      if (events.length > 0) {
+        console.log(`✅ Found on standard relays!`);
+        return events[0];
+      }
     } catch (error) {
-      console.error('❌ Error fetching event from relays:', error);
-      return null;
+      console.error('⚠️ Stage 1 failed:', error);
     }
+
+    // Stage 2: Not found on standard relays, try with outbound relays
+    console.log(`📡 Stage 2: Fetching from standard + outbound relays...`);
+
+    try {
+      // Get author pubkey from nevent if available (for outbound relay discovery)
+      // For now, use empty array - could be enhanced to extract author from nevent
+      const outboundRelays = await this.relayDiscovery.getCombinedRelays([], true);
+
+      const events = await this.pool.list(outboundRelays, [filter]);
+      if (events.length > 0) {
+        console.log(`✅ Found on outbound relays!`);
+        return events[0];
+      }
+    } catch (error) {
+      console.error('⚠️ Stage 2 failed:', error);
+    }
+
+    console.log(`❌ Event ${eventId.slice(0, 8)} not found on any relays`);
+    return null;
   }
 
   /**

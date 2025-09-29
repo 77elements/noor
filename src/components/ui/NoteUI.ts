@@ -7,7 +7,8 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import { NoteContentProcessing, ProcessedNote } from '../content/NoteContentProcessing';
 import { NoteHeader } from './NoteHeader';
-import { QuoteNoteFetcher } from '../../services/QuoteNoteFetcher';
+import { QuoteNoteFetcher, type QuoteFetchError } from '../../services/QuoteNoteFetcher';
+import { renderMediaContent, renderLinks, renderQuotedReferencesPlaceholder } from '../../helpers/htmlRenderers';
 
 export class NoteUI {
   private static noteHeaders: Map<string, NoteHeader> = new Map();
@@ -162,8 +163,8 @@ export class NoteUI {
       <div class="${contentClass}">
         ${note.content.html}
       </div>
-      ${NoteUI.renderMediaContent(note.content.media)}
-      ${NoteUI.renderLinks(note.content.links)}
+      ${renderMediaContent(note.content.media)}
+      ${renderLinks(note.content.links)}
       <div class="quoted-notes-container">
         <!-- Quoted notes will be rendered here -->
       </div>
@@ -223,9 +224,9 @@ export class NoteUI {
       <div class="${contentClass}">
         ${note.content.html}
       </div>
-      ${NoteUI.renderMediaContent(note.content.media)}
-      ${NoteUI.renderLinks(note.content.links)}
-      ${NoteUI.renderQuotedReferences(note.content.quotedReferences)}
+      ${renderMediaContent(note.content.media)}
+      ${renderLinks(note.content.links)}
+      ${renderQuotedReferencesPlaceholder(note.content.quotedReferences)}
       <div class="event-footer">
         <span class="event-kind">Kind ${note.rawEvent.kind}</span>
         <span class="event-id">${note.id.slice(0, 8)}...</span>
@@ -249,136 +250,155 @@ export class NoteUI {
   }
 
   /**
-   * Render media content (images, videos)
-   */
-  private static renderMediaContent(media: ProcessedNote['content']['media']): string {
-    if (media.length === 0) return '';
-
-    const mediaHtml = media.map(item => {
-      switch (item.type) {
-        case 'image':
-          return `<img src="${item.url}" alt="${item.alt || ''}" class="note-image" loading="lazy">`;
-        case 'video':
-          if (item.thumbnail) {
-            // YouTube or video with thumbnail
-            return `
-              <div class="note-video">
-                <img src="${item.thumbnail}" alt="Video thumbnail" class="video-thumbnail">
-                <a href="${item.url}" target="_blank" class="video-link">▶️ Watch Video</a>
-              </div>
-            `;
-          } else {
-            return `<video src="${item.url}" controls class="note-video" preload="metadata"></video>`;
-          }
-        default:
-          return '';
-      }
-    }).join('');
-
-    return `<div class="note-media">${mediaHtml}</div>`;
-  }
-
-  /**
-   * Render link previews
-   */
-  private static renderLinks(links: ProcessedNote['content']['links']): string {
-    if (links.length === 0) return '';
-
-    const linksHtml = links.map(link => `
-      <div class="note-link-preview">
-        <a href="${link.url}" target="_blank" rel="noopener">
-          ${link.title || link.domain}
-        </a>
-      </div>
-    `).join('');
-
-    return `<div class="note-links">${linksHtml}</div>`;
-  }
-
-  /**
-   * Render quoted references as quote boxes
-   */
-  private static renderQuotedReferences(quotedReferences: ProcessedNote['content']['quotedReferences']): string {
-    if (quotedReferences.length === 0) return '';
-
-    const quotesHtml = quotedReferences.map(ref => {
-      // For now, show a simple quote box with placeholder
-      // TODO: Fetch and display actual quoted content
-      return `
-        <div class="quoted-note-container">
-          <div class="quoted-note-header">
-            <span class="quote-icon">💬</span>
-            <span class="quote-type">Quoted ${ref.type}</span>
-          </div>
-          <div class="quoted-note-content">
-            <div class="quoted-note-placeholder">
-              <p><em>Loading quoted content...</em></p>
-              <small>ID: ${ref.id.slice(0, 12)}...</small>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    return `<div class="note-quotes">${quotesHtml}</div>`;
-  }
-
-  /**
    * Render quoted notes as orange quote boxes
    */
   private static async renderQuotedNotes(quotedReferences: ProcessedNote['content']['quotedReferences'], container: Element, depth: number): Promise<void> {
     for (const ref of quotedReferences) {
-      try {
-        console.log(`📎 Fetching quoted note: ${ref.fullMatch} (depth: ${depth})`);
+      // Create skeleton loader immediately (before fetch)
+      const skeleton = NoteUI.createQuoteSkeleton();
+      container.appendChild(skeleton);
 
-        // Fetch the quoted event
-        const quotedEvent = await NoteUI.quoteFetcher.fetchQuotedEvent(ref.fullMatch);
+      console.log(`📎 Fetching quoted note: ${ref.fullMatch} (depth: ${depth})`);
 
-        if (quotedEvent) {
-          // Recursively render the quoted event with NoteUI, passing increased depth
-          const quotedNoteElement = await NoteUI.createNoteElement(quotedEvent, undefined, depth);
+      // Fetch with detailed error information
+      const result = await NoteUI.quoteFetcher.fetchQuotedEventWithError(ref.fullMatch);
 
-          // Wrap in orange quote box
-          const quoteBox = document.createElement('div');
-          quoteBox.className = 'quote-box';
-          quoteBox.appendChild(quotedNoteElement);
+      // Remove skeleton
+      skeleton.remove();
 
-          // Add click handler
-          quoteBox.addEventListener('click', (e) => {
-            e.stopPropagation();
-            console.log(`Expand quoted note: ${quotedEvent.id.slice(0, 8)}`);
-          });
+      if (result.success) {
+        // Successfully fetched - render the note
+        const quotedNoteElement = await NoteUI.createNoteElement(result.event, undefined, depth);
 
-          container.appendChild(quoteBox);
-        } else {
-          // Fallback for failed fetch
-          const fallback = document.createElement('div');
-          fallback.className = 'quote-fallback';
-          fallback.innerHTML = `
-            <div class="quote-fallback-content">
-              <span class="quote-icon">💬</span>
-              <span class="quote-text">Could not load quoted note</span>
-              <small class="quote-ref">${ref.type}: ${ref.id.slice(0, 12)}...</small>
+        // Wrap in quote box
+        const quoteBox = document.createElement('div');
+        quoteBox.className = 'quote-box';
+        quoteBox.appendChild(quotedNoteElement);
+
+        // Add click handler
+        quoteBox.addEventListener('click', (e) => {
+          e.stopPropagation();
+          console.log(`Expand quoted note: ${result.event.id.slice(0, 8)}`);
+        });
+
+        container.appendChild(quoteBox);
+      } else {
+        // Error occurred - render appropriate error message
+        const errorElement = NoteUI.createQuoteError(result.error, ref.fullMatch);
+        container.appendChild(errorElement);
+      }
+    }
+  }
+
+  /**
+   * Create error element for failed quote fetch
+   */
+  private static createQuoteError(error: QuoteFetchError, reference: string): HTMLElement {
+    const errorDiv = document.createElement('div');
+
+    switch (error.type) {
+      case 'not_found':
+        errorDiv.className = 'quote-not-found';
+        errorDiv.innerHTML = `
+          <div class="quote-error-content">
+            <span class="error-icon">🔍</span>
+            <div class="error-details">
+              <span class="error-text">${error.message}</span>
+              <small class="error-id">ID: ${error.eventId}...</small>
             </div>
-          `;
-          container.appendChild(fallback);
+          </div>
+        `;
+        break;
+
+      case 'network':
+        errorDiv.className = 'quote-network-error';
+        errorDiv.innerHTML = `
+          <div class="quote-error-content">
+            <span class="error-icon">⚠️</span>
+            <div class="error-details">
+              <span class="error-text">${error.message}</span>
+              <button class="retry-btn" data-reference="${reference}">Try again</button>
+            </div>
+          </div>
+        `;
+
+        // Add retry handler
+        const retryBtn = errorDiv.querySelector('.retry-btn');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn = e.target as HTMLButtonElement;
+            btn.disabled = true;
+            btn.textContent = 'Retrying...';
+
+            // Retry fetch
+            const result = await NoteUI.quoteFetcher.fetchQuotedEventWithError(reference);
+
+            if (result.success) {
+              // Replace error with actual note
+              const quotedNoteElement = await NoteUI.createNoteElement(result.event);
+              const quoteBox = document.createElement('div');
+              quoteBox.className = 'quote-box';
+              quoteBox.appendChild(quotedNoteElement);
+              errorDiv.replaceWith(quoteBox);
+            } else {
+              // Retry failed
+              btn.disabled = false;
+              btn.textContent = 'Try again';
+            }
+          });
         }
+        break;
 
-      } catch (error) {
-        console.error('❌ Error rendering quoted note:', error);
+      case 'parse':
+        errorDiv.className = 'quote-parse-error';
+        errorDiv.innerHTML = `
+          <div class="quote-error-content">
+            <span class="error-icon">⚠️</span>
+            <div class="error-details">
+              <span class="error-text">${error.message}</span>
+              <small class="error-ref">${error.reference.slice(0, 30)}...</small>
+            </div>
+          </div>
+        `;
+        break;
 
-        // Error fallback
-        const errorDiv = document.createElement('div');
+      default:
         errorDiv.className = 'quote-error';
         errorDiv.innerHTML = `
           <div class="quote-error-content">
             <span class="error-icon">⚠️</span>
-            <span class="error-text">Quote rendering failed</span>
+            <span class="error-text">${error.message}</span>
           </div>
         `;
-        container.appendChild(errorDiv);
-      }
     }
+
+    return errorDiv;
+  }
+
+  /**
+   * Create skeleton loader for quoted note during fetch
+   */
+  private static createQuoteSkeleton(): HTMLElement {
+    const skeleton = document.createElement('div');
+    skeleton.className = 'quote-skeleton';
+
+    skeleton.innerHTML = `
+      <div class="skeleton-header">
+        <div class="skeleton-avatar"></div>
+        <div class="skeleton-text-group">
+          <div class="skeleton-line skeleton-name"></div>
+          <div class="skeleton-line skeleton-timestamp"></div>
+        </div>
+      </div>
+      <div class="skeleton-content">
+        <div class="skeleton-line skeleton-text-line"></div>
+        <div class="skeleton-line skeleton-text-line"></div>
+        <div class="skeleton-line skeleton-text-line short"></div>
+      </div>
+    `;
+
+    return skeleton;
   }
 
   /**
