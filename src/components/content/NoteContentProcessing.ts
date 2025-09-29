@@ -7,6 +7,13 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import { UserProfileService } from '../../services/UserProfileService';
 import { formatContent } from '../../helpers/contentFormatters';
+import {
+  extractMedia,
+  extractLinks,
+  extractQuotedReferences,
+  extractHashtags,
+  extractNpubMentions
+} from '../../helpers/contentExtractors';
 
 export interface ProcessedNote {
   id: string;
@@ -243,11 +250,11 @@ export class NoteContentProcessing {
    * Process content text into structured format
    */
   private async processContent(text: string): Promise<ProcessedNote['content']> {
-    const media = this.extractMedia(text);
-    const links = this.extractLinks(text);
-    const mentions = await this.extractMentions(text);
-    const hashtags = this.extractHashtags(text);
-    const quotedRefs = this.extractQuotedReferences(text);
+    const media = extractMedia(text);
+    const links = extractLinks(text);
+    const mentions = await this.extractMentions(text); // Still uses instance method (needs profile cache)
+    const hashtags = extractHashtags(text);
+    const quotedRefs = extractQuotedReferences(text);
 
     // Convert quoted references to full objects
     const quotedReferences: QuotedReference[] = quotedRefs.map(ref => ({
@@ -287,108 +294,12 @@ export class NoteContentProcessing {
   }
 
   /**
-   * Extract media URLs from content
-   */
-  private extractMedia(text: string): MediaContent[] {
-    const media: MediaContent[] = [];
-
-    // Image patterns
-    const imageRegex = /https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s]*)?/gi;
-    const images = text.match(imageRegex) || [];
-
-    images.forEach(url => {
-      media.push({
-        type: 'image',
-        url: url
-      });
-    });
-
-    // Video patterns
-    const videoRegex = /https?:\/\/[^\s]+\.(?:mp4|webm|mov|avi)(?:\?[^\s]*)?/gi;
-    const videos = text.match(videoRegex) || [];
-
-    videos.forEach(url => {
-      media.push({
-        type: 'video',
-        url: url
-      });
-    });
-
-    // YouTube detection
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/gi;
-    let match;
-    while ((match = youtubeRegex.exec(text)) !== null) {
-      media.push({
-        type: 'video',
-        url: match[0],
-        thumbnail: `https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`
-      });
-    }
-
-    return media;
-  }
-
-  /**
-   * Extract and categorize links, including nostr references
-   */
-  private extractLinks(text: string): LinkPreview[] {
-    const links: LinkPreview[] = [];
-    const urlRegex = /https?:\/\/[^\s]+/gi;
-    const urls = text.match(urlRegex) || [];
-
-    urls.forEach(url => {
-      try {
-        const parsed = new URL(url);
-        links.push({
-          url: url,
-          domain: parsed.hostname
-        });
-      } catch (error) {
-        console.warn('Invalid URL:', url);
-      }
-    });
-
-    return links;
-  }
-
-  /**
-   * Extract quoted nostr references from content
-   * Handles all quote types: nostr:event, nostr:note, nostr:nevent
-   */
-  private extractQuotedReferences(text: string): { type: string; id: string; fullMatch: string }[] {
-    const quotes: { type: string; id: string; fullMatch: string }[] = [];
-
-    // Single regex to catch all nostr references (event, note, nevent, addr)
-    const nostrRegex = /nostr:(event1[a-z0-9]{58}|note1[a-z0-9]{58}|nevent1[a-z0-9]+|addr1[a-z0-9]+)/gi;
-    const matches = text.match(nostrRegex) || [];
-
-    matches.forEach(match => {
-      // Determine type from the match
-      let type = 'unknown';
-      if (match.includes('event1')) type = 'event';
-      else if (match.includes('note1')) type = 'note';
-      else if (match.includes('nevent1')) type = 'nevent';
-      else if (match.includes('addr1')) type = 'addr';
-
-      quotes.push({
-        type,
-        id: match, // Keep full reference for fetching
-        fullMatch: match
-      });
-    });
-
-    return quotes;
-  }
-
-  /**
-   * Extract mentions (npub, hex pubkeys)
+   * Extract mentions (npub, hex pubkeys) with profile resolution
+   * Uses extractNpubMentions() helper then resolves profiles from cache
    */
   private async extractMentions(text: string): Promise<Mention[]> {
     const mentions: Mention[] = [];
-
-    // npub mentions
-    const npubRegex = /npub1[a-z0-9]{58}/gi;
-    const npubs = text.match(npubRegex) || [];
+    const npubs = extractNpubMentions(text);
 
     for (const npub of npubs) {
       // TODO: Convert npub to hex pubkey
@@ -407,15 +318,6 @@ export class NoteContentProcessing {
     }
 
     return mentions;
-  }
-
-  /**
-   * Extract hashtags
-   */
-  private extractHashtags(text: string): string[] {
-    const hashtagRegex = /#[a-zA-Z0-9_]+/g;
-    const hashtags = text.match(hashtagRegex) || [];
-    return hashtags.map(tag => tag.slice(1)); // Remove # prefix
   }
 
   /**

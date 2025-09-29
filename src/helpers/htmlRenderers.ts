@@ -37,23 +37,6 @@ export function renderMediaContent(media: ProcessedNote['content']['media']): st
 }
 
 /**
- * Render link previews
- */
-export function renderLinks(links: ProcessedNote['content']['links']): string {
-  if (links.length === 0) return '';
-
-  const linksHtml = links.map(link => `
-    <div class="note-link-preview">
-      <a href="${link.url}" target="_blank" rel="noopener">
-        ${link.title || link.domain}
-      </a>
-    </div>
-  `).join('');
-
-  return `<div class="note-links">${linksHtml}</div>`;
-}
-
-/**
  * Render quoted references placeholder
  * Note: This creates placeholder HTML. Actual quoted notes are rendered
  * dynamically via renderQuotedNotes() in NoteUI after DOM creation.
