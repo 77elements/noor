@@ -6,6 +6,7 @@
 
 import type { Event as NostrEvent } from 'nostr-tools';
 import { UserProfileService } from '../../services/UserProfileService';
+import { formatContent } from '../../helpers/contentFormatters';
 
 export interface ProcessedNote {
   id: string;
@@ -256,13 +257,8 @@ export class NoteContentProcessing {
       // quotedNote will be fetched later if needed
     }));
 
-    // Create HTML version with processing
-    let html = this.escapeHtml(text);
-    html = this.linkifyUrls(html);
-    html = this.formatMentions(html, mentions);
-    html = this.formatHashtags(html, hashtags);
-    html = this.formatQuotedReferences(html, quotedReferences);
-    html = html.replace(/\n/g, '<br>');
+    // Use formatContent utility from contentFormatters
+    const html = formatContent(text, mentions, hashtags, quotedReferences);
 
     return {
       text,
@@ -421,66 +417,6 @@ export class NoteContentProcessing {
   private extractOriginalAuthorPubkey(event: NostrEvent): string | null {
     const pTags = event.tags.filter(tag => tag[0] === 'p');
     return pTags.length > 0 ? pTags[0][1] : null;
-  }
-
-  /**
-   * Escape HTML entities
-   */
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  /**
-   * Convert URLs to clickable links
-   */
-  private linkifyUrls(html: string): string {
-    const urlRegex = /(https?:\/\/[^\s<]+)/gi;
-    return html.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-  }
-
-  /**
-   * Format mentions as clickable elements
-   */
-  private formatMentions(html: string, mentions: Mention[]): string {
-    mentions.forEach(mention => {
-      const displayName = mention.profile?.display_name || mention.profile?.name || mention.displayText;
-      html = html.replace(
-        new RegExp(mention.displayText, 'g'),
-        `<span class="mention" data-pubkey="${mention.pubkey}">@${displayName}</span>`
-      );
-    });
-    return html;
-  }
-
-  /**
-   * Format hashtags as clickable elements
-   */
-  private formatHashtags(html: string, hashtags: string[]): string {
-    hashtags.forEach(tag => {
-      html = html.replace(
-        new RegExp(`#${tag}`, 'g'),
-        `<span class="hashtag" data-tag="${tag}">#${tag}</span>`
-      );
-    });
-    return html;
-  }
-
-  /**
-   * Format quoted references as placeholder elements
-   */
-  private formatQuotedReferences(html: string, quotedReferences: QuotedReference[]): string {
-    quotedReferences.forEach(ref => {
-      // Replace the nostr reference with a placeholder that will be rendered as a quote box
-      html = html.replace(
-        ref.fullMatch,
-        `<div class="quoted-reference" data-type="${ref.type}" data-id="${ref.id}">
-          [Quoted ${ref.type}: ${ref.id.slice(0, 8)}...]
-         </div>`
-      );
-    });
-    return html;
   }
 
   /**

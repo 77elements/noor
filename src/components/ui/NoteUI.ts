@@ -14,21 +14,33 @@ export class NoteUI {
   private static noteProcessor: NoteContentProcessing = NoteContentProcessing.getInstance();
   private static quoteFetcher: QuoteNoteFetcher = QuoteNoteFetcher.getInstance();
 
+  // Maximum nesting depth for quoted notes (prevents infinite recursion)
+  private static readonly MAX_NESTING_DEPTH = 2;
+
   /**
    * Create HTML element for any nostr event (processes content internally)
+   * @param event - The Nostr event to render
+   * @param index - Optional index for tracking position
+   * @param depth - Current nesting depth (0 = top-level, increases for each quoted note)
    */
-  static async createNoteElement(event: NostrEvent, index?: number): Promise<HTMLElement> {
+  static async createNoteElement(event: NostrEvent, index?: number, depth: number = 0): Promise<HTMLElement> {
     try {
+      // Check if we've exceeded maximum nesting depth
+      if (depth > NoteUI.MAX_NESTING_DEPTH) {
+        console.warn(`⚠️ Max nesting depth (${NoteUI.MAX_NESTING_DEPTH}) reached for note ${event.id.slice(0, 8)}`);
+        return NoteUI.createMaxDepthElement(event);
+      }
+
       // Process the event internally
       const note = await NoteUI.noteProcessor.processNote(event);
 
       switch (note.type) {
         case 'repost':
-          return NoteUI.createRepostElement(note);
+          return NoteUI.createRepostElement(note, depth);
         case 'quote':
-          return await NoteUI.createQuoteElement(note);
+          return await NoteUI.createQuoteElement(note, depth);
         default:
-          return NoteUI.createOriginalNoteElement(note);
+          return NoteUI.createOriginalNoteElement(note, depth);
       }
     } catch (error) {
       console.error('❌ Error processing note:', event.id, error);
@@ -60,9 +72,36 @@ export class NoteUI {
   }
 
   /**
+   * Create element when max nesting depth is reached
+   */
+  private static createMaxDepthElement(event: NostrEvent): HTMLElement {
+    const maxDepthDiv = document.createElement('div');
+    maxDepthDiv.className = 'quote-max-depth';
+    maxDepthDiv.dataset.eventId = event.id;
+
+    maxDepthDiv.innerHTML = `
+      <div class="max-depth-content">
+        <span class="depth-icon">📄</span>
+        <span class="depth-text">Quoted note (max depth reached)</span>
+        <small class="depth-id">ID: ${event.id.slice(0, 12)}...</small>
+      </div>
+    `;
+
+    // Make it clickable to view full note in new context
+    maxDepthDiv.style.cursor = 'pointer';
+    maxDepthDiv.addEventListener('click', (e) => {
+      e.stopPropagation();
+      console.log(`View full note: ${event.id.slice(0, 8)}`);
+      // TODO: Open note in detail view or new page
+    });
+
+    return maxDepthDiv;
+  }
+
+  /**
    * Create repost element with "User reposted" display
    */
-  private static createRepostElement(note: ProcessedNote): HTMLElement {
+  private static createRepostElement(note: ProcessedNote, depth: number): HTMLElement {
     const repostDiv = document.createElement('div');
     repostDiv.className = 'timeline-event timeline-repost';
     repostDiv.dataset.eventId = note.id;
@@ -79,8 +118,8 @@ export class NoteUI {
       <span class="reposter-name">${reposterName} reposted</span>
     `;
 
-    // Original note content with original author
-    const originalNoteElement = NoteUI.createOriginalNoteElement(note);
+    // Original note content with original author (same depth, not nested deeper)
+    const originalNoteElement = NoteUI.createOriginalNoteElement(note, depth);
 
     repostDiv.appendChild(repostHeader);
     repostDiv.appendChild(originalNoteElement);
@@ -91,7 +130,7 @@ export class NoteUI {
   /**
    * Create quote element with embedded quoted notes
    */
-  private static async createQuoteElement(note: ProcessedNote): Promise<HTMLElement> {
+  private static async createQuoteElement(note: ProcessedNote, depth: number): Promise<HTMLElement> {
     const quoteDiv = document.createElement('div');
     quoteDiv.className = 'timeline-event timeline-quote';
     quoteDiv.dataset.eventId = note.id;
@@ -140,10 +179,10 @@ export class NoteUI {
       headerContainer.appendChild(noteHeader.getElement());
     }
 
-    // Render quoted notes
+    // Render quoted notes with increased depth
     const quotedContainer = quoteDiv.querySelector('.quoted-notes-container');
     if (quotedContainer && note.content.quotedReferences.length > 0) {
-      await NoteUI.renderQuotedNotes(note.content.quotedReferences, quotedContainer);
+      await NoteUI.renderQuotedNotes(note.content.quotedReferences, quotedContainer, depth + 1);
     }
 
     return quoteDiv;
@@ -152,7 +191,7 @@ export class NoteUI {
   /**
    * Create original note element
    */
-  private static createOriginalNoteElement(note: ProcessedNote): HTMLElement {
+  private static createOriginalNoteElement(note: ProcessedNote, depth: number): HTMLElement {
     const noteDiv = document.createElement('div');
     noteDiv.className = 'timeline-event timeline-original';
     noteDiv.dataset.eventId = note.id;
@@ -287,17 +326,17 @@ export class NoteUI {
   /**
    * Render quoted notes as orange quote boxes
    */
-  private static async renderQuotedNotes(quotedReferences: ProcessedNote['content']['quotedReferences'], container: Element): Promise<void> {
+  private static async renderQuotedNotes(quotedReferences: ProcessedNote['content']['quotedReferences'], container: Element, depth: number): Promise<void> {
     for (const ref of quotedReferences) {
       try {
-        console.log(`📎 Fetching quoted note: ${ref.fullMatch}`);
+        console.log(`📎 Fetching quoted note: ${ref.fullMatch} (depth: ${depth})`);
 
         // Fetch the quoted event
         const quotedEvent = await NoteUI.quoteFetcher.fetchQuotedEvent(ref.fullMatch);
 
         if (quotedEvent) {
-          // Recursively render the quoted event with NoteUI
-          const quotedNoteElement = await NoteUI.createNoteElement(quotedEvent);
+          // Recursively render the quoted event with NoteUI, passing increased depth
+          const quotedNoteElement = await NoteUI.createNoteElement(quotedEvent, undefined, depth);
 
           // Wrap in orange quote box
           const quoteBox = document.createElement('div');

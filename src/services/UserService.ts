@@ -77,10 +77,10 @@ export class UserService {
 
     // Auto-close subscription after 10 seconds to prevent memory leaks
     setTimeout(() => {
-      sub.close();
+      sub.unsub();
     }, 10000);
 
     // Return unsubscribe function
-    return () => sub.close();
+    return () => sub.unsub();
   }
 }

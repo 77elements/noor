@@ -351,7 +351,8 @@ export class TimelineUI {
    * Create element for nostr event
    */
   private async createNoteElement(event: NostrEvent, index: number): Promise<HTMLElement> {
-    return await NoteUI.createNoteElement(event, index);
+    // Timeline notes are always top-level (depth = 0)
+    return await NoteUI.createNoteElement(event, index, 0);
   }
 
 
