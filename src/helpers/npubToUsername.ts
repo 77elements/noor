@@ -19,13 +19,8 @@ export function npubToUsername(
 ): string {
   let text = htmlText;
 
-  console.log('🔥🔥🔥 npubToUsername INPUT:', text);
-  console.log('🔥🔥🔥 Contains nostr:npub?', text.includes('nostr:npub'));
-  console.log('🔥🔥🔥 Contains nostr:nprofile?', text.includes('nostr:nprofile'));
-
   // Handle nprofile (vollständig, alle Zeichen)
   text = text.replace(/(?:nostr:)?(nprofile[a-z0-9]+)/g, (match, nprofile) => {
-    console.log('🔥 FOUND NPROFILE:', nprofile);
     try {
       const npub = nprofileToNpub(nprofile);
       const hexPubkey = npubToHex(npub);
@@ -34,21 +29,18 @@ export function npubToUsername(
       // If profile has name/display_name, use it. Otherwise keep raw nostr: string
       if (profile?.name || profile?.display_name) {
         const username = profile.name || profile.display_name;
-        console.log('🔥 CONVERTED:', match, '→', `@${username}`);
         return `<a href="/profile/${npub}">@${username}</a>`;
       } else {
-        console.log('🔥 NO PROFILE YET, keeping raw:', match);
         return `<a href="/profile/${npub}">${match}</a>`;
       }
     } catch (error) {
-      console.error('🔥 NPROFILE ERROR:', error);
+      console.error('npubToUsername: Failed to parse nprofile', error);
       return match; // Keep original on error
     }
   });
 
   // Handle npub (vollständig, alle Zeichen)
   text = text.replace(/(?:nostr:)?(npub[a-z0-9]+)/g, (match, npub) => {
-    console.log('🔥 FOUND NPUB:', npub);
     try {
       const hexPubkey = npubToHex(npub);
       const profile = profileResolver(hexPubkey);
@@ -56,14 +48,12 @@ export function npubToUsername(
       // If profile has name/display_name, use it. Otherwise keep raw nostr: string
       if (profile?.name || profile?.display_name) {
         const username = profile.name || profile.display_name;
-        console.log('🔥 CONVERTED:', match, '→', `@${username}`);
         return `<a href="/profile/${npub}">@${username}</a>`;
       } else {
-        console.log('🔥 NO PROFILE YET, keeping raw:', match);
         return `<a href="/profile/${npub}">${match}</a>`;
       }
     } catch (error) {
-      console.error('🔥 NPUB ERROR:', error);
+      console.error('npubToUsername: Failed to parse npub', error);
       return match; // Keep original on error
     }
   });
@@ -75,7 +65,7 @@ export function npubToUsername(
  * Convert nprofile to npub - SIMPLE VERSION
  */
 function nprofileToNpub(nprofile: string): string {
-  const decoded = bech32.decode(nprofile);
+  const decoded = bech32.decode(nprofile, 2000); // Increase length limit for long nprofiles
   const dataBytes = convertbits(decoded.words, 5, 8, false);
 
   // Find pubkey (type 0)
@@ -100,7 +90,7 @@ function nprofileToNpub(nprofile: string): string {
  * Convert npub to hex
  */
 function npubToHex(npub: string): string {
-  const decoded = bech32.decode(npub);
+  const decoded = bech32.decode(npub, 2000); // Increase length limit
   const data = convertbits(decoded.words, 5, 8, false);
   return data.map(byte => byte.toString(16).padStart(2, '0')).join('');
 }

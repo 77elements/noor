@@ -317,7 +317,6 @@ export class NoteUI {
       // Only update if it's still showing the raw nostr: format
       if (currentText.startsWith('nostr:npub') || currentText.startsWith('nostr:nprofile')) {
         linkElement.textContent = `@${username}`;
-        console.log(`✅ Updated mention: ${currentText} → @${username}`);
       }
     });
   }
