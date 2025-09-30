@@ -19,7 +19,7 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - TypeScript compilation MUST pass with zero errors
 
 ### Step 2: User Tests (Real-World Validation)
-- User opens browser to localhost:3000 and thoroughly examines the feature
+- User starts server with 'npm run dev' in another terminal window and opens browser to localhost:3000 and thoroughly examines the feature
 - User tests all functionality, edge cases, and interactions
 - User provides explicit feedback on feature quality and completeness
 
@@ -49,19 +49,18 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
   - ✅ Keine lokalen Imports (nur externe libs wie nostr-tools)
   - ✅ Export als named export (nicht default)
 
-#### 📦 NPM-READY HELPER (31) - src/helpers/
+#### 📦 NPM-READY HELPER (29) - src/helpers/
 
-**Nostr (3):** npubToHex, hexToNpub, shortenPubkey
+**Nostr (4):** npubToHex, hexToNpub, shortenPubkey, npubToUsername
 **Cache (4):** cacheGet, cacheSet, isCacheValid, cleanOldCacheEntries
 **Storage (1):** getStorageSize
 **Fallback (2):** generateFallbackAvatar, generateFallbackUsername
 **Profile (1):** extractDisplayName
-**Extract (5):** extractHashtags, extractNpubMentions, extractLinks, extractQuotedReferences, extractMedia
-**Format (7):** escapeHtml, linkifyUrls, convertLineBreaks, formatHashtags, formatQuotedReferences, formatMentions, formatContent
+**Extract (4):** extractHashtags, extractLinks, extractQuotedReferences, extractMedia
+**Format (6):** escapeHtml, linkifyUrls, convertLineBreaks, formatHashtags, formatQuotedReferences, formatContent
 **Time (3):** formatTimestamp, formatTimeAgo, getRelativeTime
 **Render (3):** renderMediaContent, renderQuotedReferencesPlaceholder, renderNoteContent
 **Fetch (2):** fetchNostrEvents, subscribeNostrEvents
-
 
 ## Technical Notes
 
@@ -76,9 +75,15 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - **SimplePool Pattern:** Optimized relay connection management
 - **Client-side Search:** FlexSearch for instant search
 
-### Screenshot Workflow
+### Screenshot and Console Log Workflow
 - **Default Reference**: `screenshots/screenshot.png` - current app state
 - **User Commands**: "siehe Screenshot" = `screenshots/screenshot.png`
+- **Console Logs**: If you need an actual console log, tell the User so. He will then save it unter console.log for you to examine.
+
+### Coding Principles
+
+- No TODOs in the code. Address TODOs immediately, don't leave them as TODO comments in the code.
+- Never use deprecated SASS functions like darken or lighten (use color.adjust instead in this case).
 
 ### Application Architecture
 
@@ -104,6 +109,13 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - **Accessibility**: WCAG 2.1 AA compliance
 - **Dark Mode**: System preference with manual override
 - **CSS Grid**: Modern layout with progressive enhancement
+
+## Nostr projects to draw inspiration from:
+
+- Jumble.social | Web Client | Github: https://github.com/CodyTseng/jumble
+- Gossip | Desktop Client | Github: https://github.com/mikedilger/gossip
+
+Whenever you (the AI agent) don't know how to implement something, it's worth looking at how they did it.
 
 ## Chaos Mode
 
