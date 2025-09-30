@@ -8,7 +8,8 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import { NoteContentProcessing, ProcessedNote } from '../content/NoteContentProcessing';
 import { NoteHeader } from './NoteHeader';
 import { QuoteNoteFetcher, type QuoteFetchError } from '../../services/QuoteNoteFetcher';
-import { renderMediaContent, renderQuotedReferencesPlaceholder } from '../../helpers/htmlRenderers';
+import { renderMediaContent } from '../../helpers/renderMediaContent';
+import { renderQuotedReferencesPlaceholder } from '../../helpers/renderQuotedReferencesPlaceholder';
 
 export class NoteUI {
   private static noteHeaders: Map<string, NoteHeader> = new Map();

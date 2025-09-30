@@ -1,10 +1,19 @@
 /**
  * User Profile Service
  * Resolves user pubkeys to usernames, profile pictures, and metadata
+ * Now modular - uses single-purpose helpers
  */
 
 import { UserService } from './UserService';
 import type { Event as NostrEvent } from 'nostr-tools';
+import { shortenPubkey } from '../helpers/shortenPubkey';
+import { generateFallbackAvatar } from '../helpers/generateFallbackAvatar';
+import { generateFallbackUsername } from '../helpers/generateFallbackUsername';
+import { cacheGet } from '../helpers/cacheGet';
+import { cacheSet } from '../helpers/cacheSet';
+import { extractDisplayName } from '../helpers/extractDisplayName';
+import { isCacheValid } from '../helpers/isCacheValid';
+import { cleanOldCacheEntries } from '../helpers/cleanOldCacheEntries';
 
 export interface UserProfile {
   pubkey: string;
@@ -24,7 +33,12 @@ export interface UserProfile {
 
 export class UserProfileService {
   private static instance: UserProfileService;
+
+  // Separate lightweight caches for granular access
+  private usernameCache: Map<string, string> = new Map();
+  private pictureCache: Map<string, string> = new Map();
   private profileCache: Map<string, UserProfile> = new Map();
+
   private userService: UserService;
   private fetchingProfiles: Map<string, Promise<UserProfile>> = new Map();
   private storageKey = 'noornote_profile_cache';
@@ -46,7 +60,25 @@ export class UserProfileService {
   }
 
   /**
-   * Get user profile by pubkey with caching
+   * Get username ONLY (lightweight, fast)
+   * Uses separate cache, never blocks
+   */
+  public getUsername(pubkey: string): string {
+    const cached = cacheGet(this.usernameCache, pubkey);
+    return cached || generateFallbackUsername(pubkey);
+  }
+
+  /**
+   * Get profile picture ONLY (lightweight, fast)
+   * Uses separate cache, never blocks
+   */
+  public getProfilePicture(pubkey: string): string {
+    const cached = cacheGet(this.pictureCache, pubkey);
+    return cached || generateFallbackAvatar(pubkey);
+  }
+
+  /**
+   * Get full user profile (heavier, fetches from relay if needed)
    */
   public async getUserProfile(pubkey: string): Promise<UserProfile> {
     // Check cache first
@@ -66,7 +98,19 @@ export class UserProfileService {
 
     try {
       const profile = await fetchPromise;
-      this.profileCache.set(pubkey, profile);
+      cacheSet(this.profileCache, pubkey, profile);
+
+      // Update granular caches
+      const displayName = extractDisplayName(profile);
+      if (displayName) {
+        cacheSet(this.usernameCache, pubkey, displayName);
+      }
+
+      const picture = profile.picture;
+      if (picture) {
+        cacheSet(this.pictureCache, pubkey, picture);
+      }
+
       this.notifyProfileUpdate(pubkey, profile);
       this.saveToStorage();
       return profile;
@@ -79,46 +123,11 @@ export class UserProfileService {
   }
 
   /**
-   * Get display name for user (prioritizes display_name > name > username > shortened pubkey)
+   * Get display name for user (DEPRECATED - use getUsername() instead)
+   * @deprecated Use getUsername(pubkey) for lightweight access
    */
   public getDisplayName(profile: UserProfile): string {
-    if (profile.display_name?.trim()) {
-      return profile.display_name.trim();
-    }
-
-    if (profile.name?.trim()) {
-      return profile.name.trim();
-    }
-
-    if (profile.username?.trim()) {
-      return profile.username.trim();
-    }
-
-    // Fallback to shortened pubkey
-    return `${profile.pubkey.slice(0, 8)}...${profile.pubkey.slice(-4)}`;
-  }
-
-  /**
-   * Get username/handle for user (username or NIP-05 identifier)
-   */
-  public getUserHandle(profile: UserProfile): string {
-    if (profile.nip05?.trim()) {
-      return `@${profile.nip05.trim()}`;
-    }
-
-    if (profile.username?.trim()) {
-      return `@${profile.username.trim()}`;
-    }
-
-    // Fallback to npub format (simplified)
-    return `npub1${profile.pubkey.slice(0, 10)}...`;
-  }
-
-  /**
-   * Get profile picture URL with fallback
-   */
-  public getProfilePicture(profile: UserProfile): string {
-    return profile.picture || '';
+    return extractDisplayName(profile) || shortenPubkey(profile.pubkey);
   }
 
   /**
@@ -278,43 +287,18 @@ export class UserProfileService {
   }
 
   /**
-   * Get fallback avatar URL for a pubkey (disabled - most clients set defaults)
+   * Get fallback avatar URL for a pubkey
    */
   public getFallbackAvatar(pubkey: string): string {
-    return '';
+    return generateFallbackAvatar(pubkey);
   }
 
-  /**
-   * Generate a default avatar using a service like DiceBear or simple geometric pattern
-   */
-  private generateDefaultAvatar(pubkey: string): string {
-    // Use DiceBear API for consistent avatars
-    const seed = pubkey.slice(0, 16);
-    return `https://api.dicebear.com/7.x/identicon/svg?seed=${seed}&backgroundColor=transparent`;
-  }
-
-  /**
-   * Check if cached profile is still valid (24 hours)
-   */
-  private isCacheValid(profile: UserProfile): boolean {
-    if (!profile.lastUpdated) return false;
-    const oneDay = 24 * 60 * 60 * 1000;
-    return (Date.now() - profile.lastUpdated) < oneDay;
-  }
 
   /**
    * Clean old cache entries
    */
   private cleanOldCache(): void {
-    const oneWeek = 7 * 24 * 60 * 60 * 1000;
-    const cutoff = Date.now() - oneWeek;
-
-    this.profileCache.forEach((profile, pubkey) => {
-      if (profile.lastUpdated && profile.lastUpdated < cutoff) {
-        this.profileCache.delete(pubkey);
-      }
-    });
-
+    cleanOldCacheEntries(this.profileCache, 7 * 24 * 60 * 60 * 1000); // 7 days
     this.saveToStorage();
   }
 

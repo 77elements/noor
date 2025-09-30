@@ -102,19 +102,19 @@ export class NoteHeader {
 
     // Update avatar
     if (avatarImg) {
-      const imageUrl = this.userProfileService.getProfilePicture(this.profile);
+      const imageUrl = this.userProfileService.getProfilePicture(this.profile.pubkey);
       avatarImg.src = imageUrl;
-      avatarImg.alt = this.userProfileService.getDisplayName(this.profile);
+      avatarImg.alt = this.userProfileService.getUsername(this.profile.pubkey);
     }
 
     // Update display name
     if (displayName) {
-      displayName.textContent = this.userProfileService.getDisplayName(this.profile);
+      displayName.textContent = this.userProfileService.getUsername(this.profile.pubkey);
     }
 
     // Update handle
     if (handle) {
-      handle.textContent = this.userProfileService.getUserHandle(this.profile);
+      handle.textContent = `@${this.userProfileService.getUsername(this.profile.pubkey)}`;
     }
 
     // Update verification

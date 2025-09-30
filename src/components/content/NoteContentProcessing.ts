@@ -6,14 +6,12 @@
 
 import type { Event as NostrEvent } from 'nostr-tools';
 import { UserProfileService } from '../../services/UserProfileService';
-import { formatContent } from '../../helpers/contentFormatters';
-import {
-  extractMedia,
-  extractLinks,
-  extractQuotedReferences,
-  extractHashtags,
-  extractNpubMentions
-} from '../../helpers/contentExtractors';
+import { formatContent } from '../../helpers/formatContent';
+import { extractMedia } from '../../helpers/extractMedia';
+import { extractLinks } from '../../helpers/extractLinks';
+import { extractQuotedReferences } from '../../helpers/extractQuotedReferences';
+import { extractHashtags } from '../../helpers/extractHashtags';
+import { extractNpubMentions } from '../../helpers/extractNpubMentions';
 
 export interface ProcessedNote {
   id: string;

@@ -3,6 +3,8 @@
  * Centralized cache management for localStorage, sessionStorage, and app data
  */
 
+import { getStorageSize } from '../helpers/getStorageSize';
+
 export interface CacheStats {
   localStorage: {
     size: number;
@@ -44,8 +46,8 @@ export class CacheManager {
    * Get detailed cache statistics
    */
   public getCacheStats(): CacheStats {
-    const localStorageSize = this.getStorageSize(localStorage);
-    const sessionStorageSize = this.getStorageSize(sessionStorage);
+    const localStorageSize = getStorageSize(localStorage);
+    const sessionStorageSize = getStorageSize(sessionStorage);
 
     return {
       localStorage: {
@@ -239,19 +241,6 @@ export class CacheManager {
   /**
    * Get approximate size of storage in bytes
    */
-  private getStorageSize(storage: Storage): number {
-    let size = 0;
-    try {
-      for (let key in storage) {
-        if (storage.hasOwnProperty(key)) {
-          size += key.length + (storage[key]?.length || 0);
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to calculate storage size:', error);
-    }
-    return size;
-  }
 
   /**
    * Format bytes to human readable string

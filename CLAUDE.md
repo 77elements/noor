@@ -39,6 +39,29 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - If you are not sure about something, feel free to look it up online
 - I'd much rather you research first instead of guessing for hours and still not getting to the point
 
+###  🎯 Modularität: NPM-PACKAGE-READY Kriterien
+
+  Jeder Helper muss haben:
+  - ✅ Eine einzige Funktion (Single Responsibility)
+  - ✅ Keine Seiteneffekte (Pure Function, außer explizit wie cacheSet)
+  - ✅ Klare TypeScript-Interfaces für Input/Output
+  - ✅ JSDoc-Dokumentation mit Beispielen
+  - ✅ Keine lokalen Imports (nur externe libs wie nostr-tools)
+  - ✅ Export als named export (nicht default)
+
+#### 📦 NPM-READY HELPER (29) - src/helpers/
+
+**Nostr (3):** npubToHex, hexToNpub, shortenPubkey
+**Cache (4):** cacheGet, cacheSet, isCacheValid, cleanOldCacheEntries
+**Storage (1):** getStorageSize
+**Fallback (2):** generateFallbackAvatar, generateFallbackUsername
+**Profile (1):** extractDisplayName
+**Extract (5):** extractHashtags, extractNpubMentions, extractLinks, extractQuotedReferences, extractMedia
+**Format (7):** escapeHtml, linkifyUrls, convertLineBreaks, formatHashtags, formatQuotedReferences, formatMentions, formatContent
+**Time (3):** formatTimestamp, formatTimeAgo, getRelativeTime
+**Render (3):** renderMediaContent, renderQuotedReferencesPlaceholder, renderNoteContent
+
+
 ## Technical Notes
 
 **Core Technology Stack:**
@@ -81,131 +104,22 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - **Dark Mode**: System preference with manual override
 - **CSS Grid**: Modern layout with progressive enhancement
 
+## Chaos Mode
+
+This refers to you. That you're in absolute chaos mode. This usually means:
+
+- That you're only producing crap
+- That you've forgotten too much (context, where we were, modularity or coding principles described in the context file CLAUDE.md)
+- That you need 10 or more rounds to fix a simple bug
+- That while debugging, you break other features because you're too narrow-minded and autistic in your approach.
+- That you're guessing again instead of researching online using current examples, such as Jumble's GitHub repository, to see how it's done. 
+
+This mode requires an immediate stop of development, a reset of the entire branch to the last state of a working commit (only the user does this! Never you), a complete restart of the feature, and a re-reading of the context file CLAUDE.md on your part.
+
+Then we'll take 1-2 steps back from the whole thing and consider more architectural measures before tackling the feature again.
+
 ---
 
 # ═══════════════════════════════════════════════════════════════
 # 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY
 # ═══════════════════════════════════════════════════════════════
-
- Based on my analysis of your codebase, here are my modularization suggestions:
-
-  🎯 Major Modularization Opportunities
-
-  1. HTML Rendering Utilities (High Priority)
-
-  - Problem: NoteUI.ts (lines 212-285) has HTML string building logic mixed with component logic
-  - Solution: Extract to /src/helpers/htmlHelpers.ts or /src/helpers/renderHelpers.ts
-    - renderMediaContent() → reusable media renderer
-    - renderLinks() → reusable link renderer
-    - renderQuotedReferences() → reusable quote renderer
-  - Why: These are pure functions that could be useful in other components (comments, profiles, DMs, etc.)
-
-  2. Content Formatting Utilities (High Priority)
-
-  - Problem: NoteContentProcessing.ts (lines 427-484) has formatting logic buried in the class
-  - Solution: Extract to /src/helpers/contentFormatters.ts
-    - escapeHtml()
-    - linkifyUrls()
-    - formatMentions()
-    - formatHashtags()
-  - Why: Universal text formatting needed across the app (search, comments, profiles)
-
-  3. Content Extraction Utilities (Medium Priority)
-
-  - Problem: NoteContentProcessing.ts (lines 281-408) has extraction logic as private methods
-  - Solution: Extract to /src/helpers/contentExtractors.ts
-    - extractMedia()
-    - extractLinks()
-    - extractQuotedReferences()
-    - extractMentions()
-    - extractHashtags()
-  - Why: Useful for search indexing, content analysis, notifications system
-
-  4. Relay URL Utilities (Low Priority)
-
-  - Problem: EventFetchService.ts:191 has shortenRelay() as private method
-  - Solution: Extract to /src/helpers/relayHelpers.ts
-    - shortenRelayUrl()
-    - parseRelayUrl()
-    - formatRelayStatus()
-  - Why: Relay formatting needed in UI, logs, relay management screens
-
-  5. Event Type Utilities (Medium Priority)
-
-  - Problem: Reply filtering logic in TimelineLoader.ts:96-114 is tightly coupled
-  - Solution: Extract to /src/helpers/eventHelpers.ts
-    - isReply(event)
-    - isQuote(event)
-    - isRepost(event)
-    - getEventType(event)
-  - Why: Event classification needed in filters, search, notifications, thread views
-
-  6. Profile Cache Management (Medium Priority)
-
-  - Problem: NoteContentProcessing.ts has profile cache (line 89, 489-520) mixed with content processing
-  - Solution: Extract to dedicated /src/services/ProfileCacheService.ts
-    - Handles caching strategy
-    - Background loading
-    - Cache invalidation
-  - Why: Profile caching should be universal, not tied to content processing
-
-  7. Timeline State Management (Low Priority - Architectural)
-
-  - Problem: TimelineUI.ts manages its own state (events array, loading flags, pagination)
-  - Solution: Consider extracting to /src/state/TimelineState.ts
-  - Why: As the app grows, you'll want centralized state management (especially for real-time updates)
-
-  ---
-  📊 Priority Ranking
-
-  Immediate (Next Refactor):
-  1. HTML Rendering Utilities
-  2. Content Formatting Utilities
-
-  Near-term (Before adding new features):
-  3. Content Extraction Utilities
-  4. Event Type Utilities
-  5. Profile Cache Service
-
-  Long-term (When complexity grows):
-  6. Relay URL Utilities
-  7. Timeline State Management
-
----
-
-## Session: 2025-09-30 - Link Duplication Fix & NoteUI Refactoring
-
-### Changes Implemented:
-
-1. **Fixed Media URL Duplication**
-   - Problem: Image/Video URLs appeared twice (in text + below media)
-   - Solution: Modified `NoteContentProcessing.processContent()` to remove media URLs from cleanedText
-   - Also removes quoted references from text to prevent duplication
-
-2. **Fixed Link Duplication**
-   - Problem: Normal hyperlinks appeared twice (full URL + shortened domain)
-   - Solution: Removed `renderLinks()` calls from rendering flow
-   - Links now only appear as clickable hyperlinks in content text
-   - Removed from: `renderNoteContent()` in htmlRenderers.ts, `createQuoteElement()` and `createOriginalNoteElement()` in NoteUI.ts
-
-3. **Major Refactoring: NoteUI Code Deduplication**
-   - Problem: `createQuoteElement()` and `createOriginalNoteElement()` had ~60 lines of duplicated code
-   - Solution: Created central `buildNoteStructure()` helper method
-   - Eliminates duplication for:
-     - NoteHeader creation
-     - Long content checking
-     - HTML structure assembly
-     - Header mounting logic
-   - Reduced both methods from ~50 lines to ~13 lines each
-   - Benefits: Single source of truth, easier maintenance, fewer bugs
-
-### Files Modified:
-- `src/components/content/NoteContentProcessing.ts` - Remove media URLs from text
-- `src/helpers/htmlRenderers.ts` - Remove renderLinks() from renderNoteContent()
-- `src/components/ui/NoteUI.ts` - Add buildNoteStructure(), refactor createQuoteElement/createOriginalNoteElement
-
-### User Testing:
-- Build successful, TypeScript compilation passed
-- Link duplication resolved (no more double links)
-- Media URL duplication resolved (URLs only below media, not in text)
-- Code is cleaner with no dead code (renderLinks() still exists but unused)
