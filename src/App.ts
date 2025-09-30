@@ -20,9 +20,6 @@ export class App {
    * Initialize the application
    */
   async initialize(): Promise<void> {
-    // Initialize core services
-    await this.initializeServices();
-
     // Setup the main UI
     this.setupUI();
 
@@ -30,15 +27,6 @@ export class App {
     this.setupEventListeners();
   }
 
-  /**
-   * Initialize core application services
-   */
-  private async initializeServices(): Promise<void> {
-    // TODO: Initialize state management
-    // TODO: Initialize Nostr client
-    // TODO: Initialize cache manager
-    // TODO: Initialize search service
-  }
 
   /**
    * Setup the main application UI
@@ -66,20 +54,15 @@ export class App {
    * Handle window resize events
    */
   private handleResize(): void {
-    // TODO: Implement responsive behavior
+    // Currently no responsive behavior needed - CSS handles layout
   }
 
   /**
    * Handle visibility change (tab switching)
    */
   private handleVisibilityChange(): void {
-    if (document.hidden) {
-      // Page is hidden - optimize performance
-      // TODO: Pause non-essential operations
-    } else {
-      // Page is visible - resume operations
-      // TODO: Resume operations
-    }
+    // Currently no performance optimizations on visibility change
+    // Nostr subscriptions are lightweight and can remain active
   }
 }
 

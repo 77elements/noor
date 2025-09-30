@@ -180,7 +180,6 @@ export class QuoteNoteFetcher {
    */
   private async fetchEventById(eventId: string): Promise<NostrEvent | null> {
     // Stage 1: Try standard relays first
-    console.log(`📡 Stage 1: Fetching from standard relays...`);
     const standardRelays = this.relayConfig.getReadRelays();
 
     const stage1Result = await fetchNostrEvents({
@@ -191,7 +190,6 @@ export class QuoteNoteFetcher {
     });
 
     if (stage1Result.events.length > 0) {
-      console.log(`✅ Found on standard relays!`);
       return stage1Result.events[0];
     }
 

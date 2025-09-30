@@ -122,13 +122,6 @@ export class UserProfileService {
     }
   }
 
-  /**
-   * Get display name for user (DEPRECATED - use getUsername() instead)
-   * @deprecated Use getUsername(pubkey) for lightweight access
-   */
-  public getDisplayName(profile: UserProfile): string {
-    return extractDisplayName(profile) || shortenPubkey(profile.pubkey);
-  }
 
   /**
    * Check if user is verified (has valid NIP-05)

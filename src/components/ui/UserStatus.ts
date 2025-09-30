@@ -4,6 +4,7 @@
  */
 
 import { UserProfileService, UserProfile } from '../../services/UserProfileService';
+import { shortenPubkey } from '../../helpers/shortenPubkey';
 
 export interface UserStatusOptions {
   npub: string;
@@ -81,7 +82,7 @@ export class UserStatus {
 
     const userDisplay = this.element.querySelector('.user-display');
     if (userDisplay) {
-      const displayName = this.userProfileService.getDisplayName(this.profile);
+      const displayName = this.profile.name || this.profile.display_name || shortenPubkey(this.profile.pubkey);
       userDisplay.textContent = displayName;
     }
   }

@@ -576,8 +576,6 @@ export class NoteUI {
       const skeleton = NoteUI.createQuoteSkeleton();
       container.appendChild(skeleton);
 
-      console.log(`📎 Fetching quoted note: ${ref.fullMatch} (depth: ${depth})`);
-
       // Fetch with detailed error information
       const result = await NoteUI.quoteFetcher.fetchQuotedEventWithError(ref.fullMatch);
 

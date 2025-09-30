@@ -381,16 +381,12 @@ export class TimelineUI {
     // Store reference for cleanup
     this.noteHeaders.set(event.id, noteHeader);
 
-    // Check for long content
-    const hasLong = false; // TODO: Remove legacy createEventElement method
-    const contentClass = hasLong ? 'event-content has-long-content' : 'event-content';
-
     // Create event structure
     eventDiv.innerHTML = `
       <div class="event-header-container">
         <!-- Note header will be inserted here -->
       </div>
-      <div class="${contentClass}">
+      <div class="event-content">
         ${this.formatEventContent(event.content)}
       </div>
       <div class="event-footer">
