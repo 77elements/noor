@@ -159,6 +159,20 @@ export class NoteUI {
     const authorProfile = NoteUI.getNonBlockingProfile(event.pubkey);
     const quoteTags = event.tags.filter(tag => tag[0] === 'q');
     const isQuote = quoteTags.length > 0;
+
+    // CRITICAL: Load mention profiles BEFORE processing content (blockingly)
+    // This ensures npubToUsername has the profiles in cache when it runs
+    const mentionTags = event.tags.filter(tag => tag[0] === 'p' && tag[3] === 'mention');
+    if (mentionTags.length > 0) {
+      const mentionPubkeys = mentionTags.map(tag => tag[1]);
+      const profiles = await NoteUI.userProfileService.getUserProfiles(mentionPubkeys);
+
+      // Copy profiles to NoteUI.profileCache so getNonBlockingProfile finds them
+      profiles.forEach((profile, pubkey) => {
+        NoteUI.profileCache.set(pubkey, profile);
+      });
+    }
+
     const processedContent = await NoteUI.processContent(event.content);
 
     return {

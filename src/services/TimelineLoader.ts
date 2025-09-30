@@ -53,7 +53,7 @@ export class TimelineLoader {
     let totalFetched = 0;
     let relaysUsed = 0;
 
-    // Strategy: Use only standard relays (no outbound) for testing
+    // Strategy: Use only standard relays (outbound relays cause too many connections/timeouts)
     const allRelays = await this.relayDiscovery.getCombinedRelays(followingPubkeys, false);
 
     if (allRelays.length > 0) {

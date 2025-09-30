@@ -19,42 +19,51 @@ export function npubToUsername(
 ): string {
   let text = htmlText;
 
-  // Handle nprofile (vollständig, alle Zeichen)
-  text = text.replace(/(?:nostr:)?(nprofile[a-z0-9]+)/g, (match, nprofile) => {
+  // Step 1: Handle nprofile (with or without nostr: prefix)
+  // Use capturing groups to get full match
+  text = text.replace(/(nostr:)?(nprofile[a-z0-9]+)/gi, (fullMatch, prefix, nprofile) => {
     try {
       const npub = nprofileToNpub(nprofile);
       const hexPubkey = npubToHex(npub);
       const profile = profileResolver(hexPubkey);
 
-      // If profile has name/display_name, use it. Otherwise keep raw nostr: string
       if (profile?.name || profile?.display_name) {
         const username = profile.name || profile.display_name;
         return `<a href="/profile/${npub}">@${username}</a>`;
       } else {
-        return `<a href="/profile/${npub}">${match}</a>`;
+        // Add marker to prevent npub regex from re-matching
+        return `<a href="/profile/${npub}" data-mention>${fullMatch}</a>`;
       }
     } catch (error) {
       console.error('npubToUsername: Failed to parse nprofile', error);
-      return match; // Keep original on error
+      return fullMatch;
     }
   });
 
-  // Handle npub (vollständig, alle Zeichen)
-  text = text.replace(/(?:nostr:)?(npub[a-z0-9]+)/g, (match, npub) => {
+  // Step 2: Handle npub (with or without nostr: prefix)
+  // BUT skip npubs that are already inside links we created above
+  text = text.replace(/(nostr:)?(npub[a-z0-9]+)/gi, (fullMatch, prefix, npub, offset, string) => {
+    // Check if this npub is inside a link we already created
+    const before = string.substring(Math.max(0, offset - 60), offset);
+
+    // Skip if it's inside href="/profile/..." or has data-mention marker
+    if (before.includes('href="/profile/') || before.includes('data-mention')) {
+      return fullMatch;
+    }
+
     try {
       const hexPubkey = npubToHex(npub);
       const profile = profileResolver(hexPubkey);
 
-      // If profile has name/display_name, use it. Otherwise keep raw nostr: string
       if (profile?.name || profile?.display_name) {
         const username = profile.name || profile.display_name;
         return `<a href="/profile/${npub}">@${username}</a>`;
       } else {
-        return `<a href="/profile/${npub}">${match}</a>`;
+        return `<a href="/profile/${npub}" data-mention>${fullMatch}</a>`;
       }
     } catch (error) {
       console.error('npubToUsername: Failed to parse npub', error);
-      return match; // Keep original on error
+      return fullMatch;
     }
   });
 
