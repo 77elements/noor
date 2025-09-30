@@ -86,7 +86,7 @@ export class TimelineLoader {
       events: filteredEvents,
       totalFetched,
       relaysUsed,
-      hasMore: events.length >= 20 // Has more if we got a full batch
+      hasMore: true // Always true for initial load - LoadMore service will handle pagination
     };
   }
 

@@ -83,7 +83,7 @@ export class UserProfileService {
   public async getUserProfile(pubkey: string): Promise<UserProfile> {
     // Check cache first
     const cached = this.profileCache.get(pubkey);
-    if (cached && this.isCacheValid(cached)) {
+    if (cached && isCacheValid(cached)) {
       return cached;
     }
 
@@ -147,7 +147,7 @@ export class UserProfileService {
     // Check cache for each pubkey
     pubkeys.forEach(pubkey => {
       const cached = this.profileCache.get(pubkey);
-      if (cached && this.isCacheValid(cached)) {
+      if (cached && isCacheValid(cached)) {
         profiles.set(pubkey, cached);
       } else {
         uncachedPubkeys.push(pubkey);
