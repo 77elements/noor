@@ -49,7 +49,7 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
   - ✅ Keine lokalen Imports (nur externe libs wie nostr-tools)
   - ✅ Export als named export (nicht default)
 
-#### 📦 NPM-READY HELPER (29) - src/helpers/
+#### 📦 NPM-READY HELPER (31) - src/helpers/
 
 **Nostr (3):** npubToHex, hexToNpub, shortenPubkey
 **Cache (4):** cacheGet, cacheSet, isCacheValid, cleanOldCacheEntries
@@ -60,6 +60,7 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 **Format (7):** escapeHtml, linkifyUrls, convertLineBreaks, formatHashtags, formatQuotedReferences, formatMentions, formatContent
 **Time (3):** formatTimestamp, formatTimeAgo, getRelativeTime
 **Render (3):** renderMediaContent, renderQuotedReferencesPlaceholder, renderNoteContent
+**Fetch (2):** fetchNostrEvents, subscribeNostrEvents
 
 
 ## Technical Notes

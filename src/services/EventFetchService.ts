@@ -2,10 +2,12 @@
  * Event Fetch Service
  * Simple, focused service that fetches events from specified relays
  * Does exactly what it's told - no business logic, no decisions
+ * Now uses universal fetchNostrEvents helper
  */
 
 import { SimplePool } from 'nostr-tools/pool';
-import type { Event as NostrEvent, Filter as NostrFilter } from 'nostr-tools';
+import type { Event as NostrEvent } from 'nostr-tools';
+import { fetchNostrEvents } from '../helpers/fetchNostrEvents';
 
 export interface FetchRequest {
   eventsPerRelay?: number; // Optional: for count-based fetching
@@ -40,6 +42,7 @@ export class EventFetchService {
 
   /**
    * Fetch exactly what was requested with optional diversity control
+   * Now uses universal fetchNostrEvents helper
    */
   public async fetchEvents(request: FetchRequest): Promise<FetchResult> {
     const {
@@ -55,12 +58,6 @@ export class EventFetchService {
 
     const isTimeBased = timeWindowHours !== undefined;
     const diversityMode = userPubkey && maxUserEventsPerRelay !== undefined;
-
-    if (isTimeBased) {
-      // console.log(`🕐 FETCH SERVICE: Events from last ${timeWindowHours}h from ${relays.length} relays ${diversityMode ? '(diversity mode)' : ''}`);
-    } else {
-      // console.log(`🔧 FETCH SERVICE: ${eventsPerRelay} events per relay from ${relays.length} relays ${diversityMode ? '(diversity mode)' : ''}`);
-    }
 
     const allEvents: Map<string, NostrEvent> = new Map();
     const relayStats: Map<string, number> = new Map();
@@ -135,52 +132,24 @@ export class EventFetchService {
         }
       }
     } else {
-      // Standard mode: Single filter for all authors
-      const filter: NostrFilter = {
+      // Standard mode: Use universal fetchNostrEvents helper
+      const result = await fetchNostrEvents({
+        relays,
         authors,
         kinds,
-        until
-      };
+        until,
+        limit: isTimeBased ? undefined : (eventsPerRelay || 10),
+        timeWindowHours: isTimeBased ? timeWindowHours : undefined,
+        pool: this.pool
+      });
 
-      // Add limit for count-based OR since for time-based
-      if (isTimeBased && timeWindowHours) {
-        const timeWindowSeconds = timeWindowHours * 3600;
-        filter.since = until ? until - timeWindowSeconds : Math.floor(Date.now() / 1000) - timeWindowSeconds;
-        console.log(`🕐 Time window: ${new Date((filter.since || 0) * 1000).toISOString()} to ${new Date((until || Date.now() / 1000) * 1000).toISOString()}`);
-      } else if (eventsPerRelay) {
-        filter.limit = eventsPerRelay;
-      } else {
-        filter.limit = 10; // Default fallback
-      }
-
-      // Fetch from each relay individually
-      for (const relay of relays) {
-        try {
-          const events = await this.pool.list([relay], [filter]);
-
-          // Add unique events
-          let uniqueCount = 0;
-          events.forEach(event => {
-            if (!allEvents.has(event.id)) {
-              allEvents.set(event.id, event);
-              uniqueCount++;
-            }
-          });
-
-          relayStats.set(relay, uniqueCount);
-          console.log(`📡 ${this.shortenRelay(relay)}: ${events.length} events (${uniqueCount} unique)`);
-
-        } catch (error) {
-          console.error(`❌ ${this.shortenRelay(relay)}: Failed -`, error);
-          relayStats.set(relay, 0);
-        }
-      }
+      // Map result to our return format
+      result.events.forEach(event => allEvents.set(event.id, event));
+      relays.forEach(relay => relayStats.set(relay, 0)); // Helper doesn't expose per-relay stats
     }
 
     const events = Array.from(allEvents.values());
     events.sort((a, b) => b.created_at - a.created_at);
-
-    // console.log(`✅ FETCH SERVICE: ${events.length} total unique events from ${relays.length} relays`);
 
     return { events, relayStats };
   }

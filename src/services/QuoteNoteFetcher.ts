@@ -3,13 +3,15 @@
  * Simple service to fetch quoted events from nostr references
  * Handles: nostr:event, nostr:note, nostr:nevent
  * Uses two-stage fetch: standard relays → outbound relays fallback
+ * Now uses universal fetchNostrEvents helper
  */
 
-import type { Event as NostrEvent, Filter as NostrFilter } from 'nostr-tools';
+import type { Event as NostrEvent } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
 import { RelayConfig } from './RelayConfig';
 import { RelayDiscoveryService } from './RelayDiscoveryService';
+import { fetchNostrEvents } from '../helpers/fetchNostrEvents';
 
 export type QuoteFetchError =
   | { type: 'not_found'; message: string; eventId: string }
@@ -174,39 +176,41 @@ export class QuoteNoteFetcher {
    * Fetch event by ID from relays with two-stage strategy
    * Stage 1: Try standard relays
    * Stage 2: If not found, try standard + outbound relays
+   * Now uses universal fetchNostrEvents helper
    */
   private async fetchEventById(eventId: string): Promise<NostrEvent | null> {
-    const filter: NostrFilter = {
-      ids: [eventId],
-      limit: 1
-    };
-
     // Stage 1: Try standard relays first
     console.log(`📡 Stage 1: Fetching from standard relays...`);
     const standardRelays = this.relayConfig.getReadRelays();
 
-    try {
-      const events = await this.pool.list(standardRelays, [filter]);
-      if (events.length > 0) {
-        console.log(`✅ Found on standard relays!`);
-        return events[0];
-      }
-    } catch (error) {
-      console.error('⚠️ Stage 1 failed:', error);
+    const stage1Result = await fetchNostrEvents({
+      relays: standardRelays,
+      ids: [eventId],
+      limit: 1,
+      pool: this.pool
+    });
+
+    if (stage1Result.events.length > 0) {
+      console.log(`✅ Found on standard relays!`);
+      return stage1Result.events[0];
     }
 
     // Stage 2: Not found on standard relays, try with outbound relays
     console.log(`📡 Stage 2: Fetching from standard + outbound relays...`);
 
     try {
-      // Get author pubkey from nevent if available (for outbound relay discovery)
-      // For now, use empty array - could be enhanced to extract author from nevent
       const outboundRelays = await this.relayDiscovery.getCombinedRelays([], true);
 
-      const events = await this.pool.list(outboundRelays, [filter]);
-      if (events.length > 0) {
+      const stage2Result = await fetchNostrEvents({
+        relays: outboundRelays,
+        ids: [eventId],
+        limit: 1,
+        pool: this.pool
+      });
+
+      if (stage2Result.events.length > 0) {
         console.log(`✅ Found on outbound relays!`);
-        return events[0];
+        return stage2Result.events[0];
       }
     } catch (error) {
       console.error('⚠️ Stage 2 failed:', error);
