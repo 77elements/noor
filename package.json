@@ -53,8 +53,9 @@
     "vitest": "^0.34.0"
   },
   "dependencies": {
-    "nostr-tools": "^1.17.0",
-    "dataloader": "^2.2.2"
+    "bech32": "^2.0.0",
+    "dataloader": "^2.2.2",
+    "nostr-tools": "^1.17.0"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -141,11 +141,11 @@ export class NoteHeader {
     }
 
     if (displayName) {
-      displayName.textContent = `${this.options.pubkey.slice(0, 8)}...`;
+      displayName.textContent = this.options.pubkey;
     }
 
     if (handle) {
-      handle.textContent = `npub1${this.options.pubkey.slice(0, 10)}...`;
+      handle.textContent = this.options.pubkey;
     }
   }
 

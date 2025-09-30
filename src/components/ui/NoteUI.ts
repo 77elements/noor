@@ -5,16 +5,84 @@
  */
 
 import type { Event as NostrEvent } from 'nostr-tools';
-import { NoteContentProcessing, ProcessedNote } from '../content/NoteContentProcessing';
 import { NoteHeader } from './NoteHeader';
 import { QuoteNoteFetcher, type QuoteFetchError } from '../../services/QuoteNoteFetcher';
+import { UserProfileService } from '../../services/UserProfileService';
 import { renderMediaContent } from '../../helpers/renderMediaContent';
 import { renderQuotedReferencesPlaceholder } from '../../helpers/renderQuotedReferencesPlaceholder';
+import { npubToUsername } from '../../helpers/npubToUsername';
+import { hexToNpub } from '../../helpers/hexToNpub';
+import { escapeHtml } from '../../helpers/escapeHtml';
+import { linkifyUrls } from '../../helpers/linkifyUrls';
+import { formatHashtags } from '../../helpers/formatHashtags';
+import { formatQuotedReferences } from '../../helpers/formatQuotedReferences';
+import { convertLineBreaks } from '../../helpers/convertLineBreaks';
+import { extractMedia } from '../../helpers/extractMedia';
+import { extractLinks } from '../../helpers/extractLinks';
+import { extractHashtags } from '../../helpers/extractHashtags';
+import { extractQuotedReferences } from '../../helpers/extractQuotedReferences';
+
+// Types from NoteContentProcessing (now local)
+export interface ProcessedNote {
+  id: string;
+  type: 'original' | 'repost' | 'quote';
+  timestamp: number;
+  author: {
+    pubkey: string;
+    profile?: {
+      name?: string;
+      display_name?: string;
+      picture?: string;
+    };
+  };
+  reposter?: {
+    pubkey: string;
+    profile?: {
+      name?: string;
+      display_name?: string;
+      picture?: string;
+    };
+  };
+  content: {
+    text: string;
+    html: string;
+    media: MediaContent[];
+    links: LinkPreview[];
+    hashtags: string[];
+    quotedReferences: QuotedReference[];
+  };
+  rawEvent: NostrEvent;
+  quotedEvent?: ProcessedNote;
+}
+
+export interface MediaContent {
+  type: 'image' | 'video' | 'audio';
+  url: string;
+  alt?: string;
+  thumbnail?: string;
+  dimensions?: { width: number; height: number };
+}
+
+export interface LinkPreview {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  domain: string;
+}
+
+export interface QuotedReference {
+  type: 'event' | 'note' | 'addr';
+  id: string;
+  fullMatch: string;
+  quotedNote?: ProcessedNote;
+}
 
 export class NoteUI {
   private static noteHeaders: Map<string, NoteHeader> = new Map();
-  private static noteProcessor: NoteContentProcessing = NoteContentProcessing.getInstance();
+  private static userProfileService: UserProfileService = UserProfileService.getInstance();
   private static quoteFetcher: QuoteNoteFetcher = QuoteNoteFetcher.getInstance();
+  private static profileCache: Map<string, any> = new Map();
 
   // Maximum nesting depth for quoted notes (prevents infinite recursion)
   private static readonly MAX_NESTING_DEPTH = 2;
@@ -33,8 +101,8 @@ export class NoteUI {
         return NoteUI.createMaxDepthElement(event);
       }
 
-      // Process the event internally
-      const note = await NoteUI.noteProcessor.processNote(event);
+      // Process the event internally with direct helpers
+      const note = await NoteUI.processNote(event);
 
       switch (note.type) {
         case 'repost':
@@ -48,6 +116,259 @@ export class NoteUI {
       console.error('❌ Error processing note:', event.id, error);
       return NoteUI.createErrorNoteElement(event, error);
     }
+  }
+
+  /**
+   * Process note using direct helpers (replaces NoteContentProcessing)
+   */
+  private static async processNote(event: NostrEvent): Promise<ProcessedNote> {
+    try {
+      switch (event.kind) {
+        case 1:
+          return await NoteUI.processTextNote(event);
+        case 6:
+          return await NoteUI.processRepost(event);
+        default:
+          console.warn(`⚠️ Unsupported note kind: ${event.kind}`);
+          return await NoteUI.processTextNote(event);
+      }
+    } catch (error) {
+      console.error(`❌ ERROR processing note ${event.id.slice(0, 8)}:`, error);
+      return {
+        id: event.id,
+        type: 'original',
+        timestamp: event.created_at,
+        author: { pubkey: event.pubkey },
+        content: {
+          text: event.content,
+          html: event.content.replace(/\n/g, '<br>'),
+          media: [],
+          links: [],
+          hashtags: [],
+          quotedReferences: []
+        },
+        rawEvent: event
+      };
+    }
+  }
+
+  /**
+   * Process text note (kind 1) with direct helpers
+   */
+  private static async processTextNote(event: NostrEvent): Promise<ProcessedNote> {
+    const authorProfile = NoteUI.getNonBlockingProfile(event.pubkey);
+    const quoteTags = event.tags.filter(tag => tag[0] === 'q');
+    const isQuote = quoteTags.length > 0;
+    const processedContent = await NoteUI.processContent(event.content);
+
+    return {
+      id: event.id,
+      type: isQuote ? 'quote' : 'original',
+      timestamp: event.created_at,
+      author: {
+        pubkey: event.pubkey,
+        profile: authorProfile ? {
+          name: authorProfile.name,
+          display_name: authorProfile.display_name,
+          picture: authorProfile.picture
+        } : undefined
+      },
+      content: processedContent,
+      rawEvent: event
+    };
+  }
+
+  /**
+   * Process repost (kind 6) with direct helpers
+   */
+  private static async processRepost(event: NostrEvent): Promise<ProcessedNote> {
+    const reposterProfile = NoteUI.getNonBlockingProfile(event.pubkey);
+    const originalEventId = NoteUI.extractOriginalEventId(event);
+    const originalAuthorPubkey = NoteUI.extractOriginalAuthorPubkey(event);
+
+    let originalAuthorProfile;
+    if (originalAuthorPubkey) {
+      originalAuthorProfile = NoteUI.getNonBlockingProfile(originalAuthorPubkey);
+    }
+
+    let originalContent = 'Reposted content';
+    try {
+      if (event.content && event.content.trim()) {
+        const originalEvent = JSON.parse(event.content);
+        if (originalEvent.content) {
+          originalContent = originalEvent.content;
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not parse repost content as JSON');
+    }
+
+    const processedContent = await NoteUI.processContent(originalContent);
+
+    return {
+      id: event.id,
+      type: 'repost',
+      timestamp: event.created_at,
+      author: originalAuthorPubkey ? {
+        pubkey: originalAuthorPubkey,
+        profile: originalAuthorProfile ? {
+          name: originalAuthorProfile.name,
+          display_name: originalAuthorProfile.display_name,
+          picture: originalAuthorProfile.picture
+        } : undefined
+      } : {
+        pubkey: event.pubkey,
+        profile: reposterProfile ? {
+          name: reposterProfile.name,
+          display_name: reposterProfile.display_name,
+          picture: reposterProfile.picture
+        } : undefined
+      },
+      reposter: {
+        pubkey: event.pubkey,
+        profile: reposterProfile ? {
+          name: reposterProfile.name,
+          display_name: reposterProfile.display_name,
+          picture: reposterProfile.picture
+        } : undefined
+      },
+      content: processedContent,
+      rawEvent: event
+    };
+  }
+
+  /**
+   * Process content with individual helpers (replaces formatContent)
+   */
+  private static async processContent(text: string): Promise<ProcessedNote['content']> {
+    const media = extractMedia(text);
+    const links = extractLinks(text);
+    const hashtags = extractHashtags(text);
+    const quotedRefs = extractQuotedReferences(text);
+
+    const quotedReferences: QuotedReference[] = quotedRefs.map(ref => ({
+      type: ref.type as 'event' | 'note' | 'addr',
+      id: ref.id,
+      fullMatch: ref.fullMatch
+    }));
+
+    // Process mentions FIRST on raw text!
+    const profileResolver = (hexPubkey: string) => {
+      const profile = NoteUI.getNonBlockingProfile(hexPubkey);
+      return profile ? {
+        name: profile.name,
+        display_name: profile.display_name,
+        picture: profile.picture
+      } : null;
+    };
+
+    // Remove media URLs and quoted references from text
+    let cleanedText = text;
+    media.forEach(item => {
+      cleanedText = cleanedText.replace(item.url, '');
+    });
+    quotedReferences.forEach(ref => {
+      cleanedText = cleanedText.replace(ref.fullMatch, '');
+    });
+    cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n').trim();
+
+    // Process HTML with individual helpers (replacing formatContent)
+    let html = escapeHtml(cleanedText);
+    html = linkifyUrls(html);
+    html = npubToUsername(html, profileResolver);
+
+    html = formatHashtags(html, hashtags);
+    html = formatQuotedReferences(html, quotedReferences);
+    html = convertLineBreaks(html);
+
+    return {
+      text,
+      html,
+      media,
+      links,
+      hashtags,
+      quotedReferences
+    };
+  }
+
+  /**
+   * ============================================================================
+   * POST-PROCESSING: npubToUsername Helper Follow-up
+   * ============================================================================
+   * When npubToUsername runs initially, profiles may not be loaded yet,
+   * so mentions are rendered as raw "nostr:npub..." strings with links.
+   * This method updates those mentions in the DOM once profiles are loaded.
+   * (NIP-27 Progressive Enhancement Pattern)
+   */
+  private static updateMentionsInDOM(hexPubkey: string, profile: any): void {
+    const username = profile.name || profile.display_name;
+    if (!username) return;
+
+    // Convert hex to npub for profile URL
+    const npub = hexToNpub(hexPubkey);
+
+    // Find all mention links that point to this profile
+    const mentionLinks = document.querySelectorAll(`a[href="/profile/${npub}"]`);
+
+    mentionLinks.forEach((link) => {
+      const linkElement = link as HTMLAnchorElement;
+      const currentText = linkElement.textContent || '';
+
+      // Only update if it's still showing the raw nostr: format
+      if (currentText.startsWith('nostr:npub') || currentText.startsWith('nostr:nprofile')) {
+        linkElement.textContent = `@${username}`;
+        console.log(`✅ Updated mention: ${currentText} → @${username}`);
+      }
+    });
+  }
+
+  /**
+   * Get profile non-blocking with cache
+   */
+  private static getNonBlockingProfile(pubkey: string): any {
+    if (NoteUI.profileCache.has(pubkey)) {
+      return NoteUI.profileCache.get(pubkey);
+    }
+
+    const fallbackProfile = {
+      pubkey,
+      name: null,
+      display_name: null,
+      picture: '',
+      about: null
+    };
+
+    NoteUI.profileCache.set(pubkey, fallbackProfile);
+
+    NoteUI.userProfileService.getUserProfile(pubkey)
+      .then(realProfile => {
+        if (realProfile) {
+          NoteUI.profileCache.set(pubkey, realProfile);
+          // Update all mentions in DOM for this pubkey
+          NoteUI.updateMentionsInDOM(pubkey, realProfile);
+        }
+      })
+      .catch(error => {
+        console.warn(`Profile load failed for ${pubkey.slice(0, 8)}:`, error);
+      });
+
+    return fallbackProfile;
+  }
+
+  /**
+   * Extract original event ID from repost tags
+   */
+  private static extractOriginalEventId(event: NostrEvent): string | null {
+    const eTags = event.tags.filter(tag => tag[0] === 'e');
+    return eTags.length > 0 ? eTags[0][1] : null;
+  }
+
+  /**
+   * Extract original author pubkey from repost tags
+   */
+  private static extractOriginalAuthorPubkey(event: NostrEvent): string | null {
+    const pTags = event.tags.filter(tag => tag[0] === 'p');
+    return pTags.length > 0 ? pTags[0][1] : null;
   }
 
   /**
@@ -166,9 +487,11 @@ export class NoteUI {
       ? '<div class="quoted-notes-container"><!-- Quoted notes will be rendered here --></div>'
       : renderQuotedReferencesPlaceholder(note.content.quotedReferences);
 
+    const processedHtml = note.content.html;
+
     noteDiv.innerHTML = `
       <div class="event-header-container"></div>
-      <div class="${contentClass}">${note.content.html}</div>
+      <div class="${contentClass}">${processedHtml}</div>
       ${renderMediaContent(note.content.media)}
       ${quotedSection}
       <div class="event-footer">

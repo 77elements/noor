@@ -3,6 +3,7 @@
  * CSS Grid-based 3-column layout: Sidebar + Primary + Secondary
  */
 
+@use 'sass:color';
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
 
@@ -74,7 +75,7 @@
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: lighten($color-2, 10%);
+    background: color.adjust($color-2, $lightness: 10%);
   }
 
   // Firefox
@@ -134,7 +135,7 @@
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: lighten($color-2, 10%);
+    background: color.adjust($color-2, $lightness: 10%);
   }
 
   // Firefox

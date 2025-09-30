@@ -3,6 +3,7 @@
  * Shows current user info with logout button in secondary content
  */
 
+@use 'sass:color';
 @use '../abstracts/variables' as *;
 
 .user-status {
@@ -45,11 +46,11 @@
     transition: background-color 0.2s ease;
 
     &:hover {
-      background: lighten($color-4, 10%);
+      background: color.adjust($color-4, $lightness: 10%);
     }
 
     &:active {
-      background: darken($color-4, 5%);
+      background: color.adjust($color-4, $lightness: -5%);
     }
   }
 }
