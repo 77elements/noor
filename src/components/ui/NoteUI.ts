@@ -297,7 +297,7 @@ export class NoteUI {
     // Process HTML with individual helpers (replacing formatContent)
     let html = escapeHtml(cleanedText);
     html = linkifyUrls(html);
-    html = npubToUsername(html, profileResolver);
+    html = npubToUsername(html, 'html-multi', profileResolver);
 
     html = formatHashtags(html, hashtags);
     html = formatQuotedReferences(html, quotedReferences);

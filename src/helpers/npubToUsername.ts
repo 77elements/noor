@@ -15,34 +15,39 @@ export interface Profile {
 export type ProfileResolver = (hexPubkey: string) => Profile | null;
 
 /**
- * Simple mode: npub → username string
- * @param npub - Single npub string
- * @param asHTML - If true, returns HTML with link. Default: false
- * @returns Username string or HTML link
+ * MODE 1 (Simple): npub → username string
+ * MODE 2 (HTML Single): npub → <a>@username</a>
+ * MODE 3 (HTML Multi): HTML text with multiple mentions → all replaced
  */
-export function npubToUsername(npub: string, asHTML?: false): string;
-export function npubToUsername(npub: string, asHTML: true, profileResolver: ProfileResolver): string;
+export function npubToUsername(npub: string): string;
+export function npubToUsername(npub: string, mode: 'html-single', profileResolver: ProfileResolver): string;
+export function npubToUsername(htmlText: string, mode: 'html-multi', profileResolver: ProfileResolver): string;
 export function npubToUsername(
-  npubOrHtml: string,
-  asHTML: boolean | ProfileResolver = false,
+  input: string,
+  mode?: 'html-single' | 'html-multi' | ProfileResolver,
   profileResolver?: ProfileResolver
 ): string {
-  // Legacy mode: HTML text processing (when second param is ProfileResolver)
-  if (typeof asHTML === 'function') {
-    return npubToUsernameHTML(npubOrHtml, asHTML as ProfileResolver);
+  // Legacy compatibility: detect old signature (second param is ProfileResolver)
+  if (typeof mode === 'function') {
+    return npubToUsernameHTMLMulti(input, mode as ProfileResolver);
   }
 
-  // Simple mode: single npub to username
-  if (!asHTML) {
-    return npubToUsernameSimple(npubOrHtml);
+  // Simple mode (default): single npub to username string
+  if (!mode) {
+    return npubToUsernameSimple(input);
   }
 
-  // HTML mode: single npub to HTML link
-  if (profileResolver) {
-    return npubToUsernameHTMLSingle(npubOrHtml, profileResolver);
+  // HTML Single mode: single npub to HTML link
+  if (mode === 'html-single' && profileResolver) {
+    return npubToUsernameHTMLSingle(input, profileResolver);
   }
 
-  return npubOrHtml;
+  // HTML Multi mode: process entire HTML text with multiple mentions
+  if (mode === 'html-multi' && profileResolver) {
+    return npubToUsernameHTMLMulti(input, profileResolver);
+  }
+
+  return input;
 }
 
 /**
@@ -90,9 +95,9 @@ function npubToUsernameHTMLSingle(npub: string, profileResolver: ProfileResolver
 }
 
 /**
- * Legacy mode: HTML text with multiple npub/nprofile mentions
+ * HTML Multi mode: HTML text with multiple npub/nprofile mentions
  */
-function npubToUsernameHTML(
+function npubToUsernameHTMLMulti(
   htmlText: string,
   profileResolver: ProfileResolver
 ): string {

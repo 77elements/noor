@@ -49,17 +49,18 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
   - ✅ Keine lokalen Imports (nur externe libs wie nostr-tools)
   - ✅ Export als named export (nicht default)
 
-#### 📦 NPM-READY HELPER (29) - src/helpers/
+#### 📦 NPM-READY HELPER (33) - src/helpers/
 
-**Nostr (4):** npubToHex, hexToNpub, shortenPubkey, npubToUsername
+**Nostr (4):** npubToHex, hexToNpub, shortenNpub, npubToUsername (3 modes: simple string, html-single, html-multi)
 **Cache (4):** cacheGet, cacheSet, isCacheValid, cleanOldCacheEntries
 **Storage (1):** getStorageSize
 **Fallback (2):** generateFallbackAvatar, generateFallbackUsername
-**Profile (1):** extractDisplayName
+**Profile (2):** extractDisplayName, getProfilePicture
 **Extract (4):** extractHashtags, extractLinks, extractQuotedReferences, extractMedia
-**Format (6):** escapeHtml, linkifyUrls, convertLineBreaks, formatHashtags, formatQuotedReferences, formatContent
+**Format (5):** escapeHtml, linkifyUrls, convertLineBreaks, formatHashtags, formatQuotedReferences
 **Time (3):** formatTimestamp, formatTimeAgo, getRelativeTime
 **Render (3):** renderMediaContent, renderQuotedReferencesPlaceholder, renderNoteContent
+**Skeleton (3):** createMediaSkeleton, createNoteSkeleton, createProfileSkeleton
 **Fetch (2):** fetchNostrEvents, subscribeNostrEvents
 
 ## Technical Notes
