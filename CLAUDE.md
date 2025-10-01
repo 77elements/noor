@@ -231,3 +231,50 @@ Claude repeatedly built "shortening" helpers (shortenPubkey, shortenNpub, etc.) 
 - src/helpers/shortenNpub.ts - removed shortening
 
 **Result:** Reposts now show "@username reposted" with progressive enhancement (npub → username).
+
+## 🔄 NEXT SESSION: Continue Single Note View Implementation (2025-10-03)
+
+**What we built today (2025-10-02):**
+- ✅ Router: Minimal vanilla JS router with pattern matching (`/`, `/note/:noteId`, `/profile/:npub`)
+- ✅ AppState: Central state manager with subscription pattern (user, timeline, view)
+- ✅ SPA Navigation: Click on note → SNV placeholder, Home link → Timeline
+- ✅ View switching works, but SNV shows only empty placeholder
+
+**Bundle size:** 92.56 KB main / 26.24 KB gzipped (+1.19 KB from start)
+
+**Tomorrow's plan:**
+
+1. **Split System Log (Priority 1)**
+   - Split DebugLogger into 2 sections: Global (top, 4-5 lines) + Page (bottom, rest)
+   - Global section: AppState, Router, UserService, Auth
+   - Page section: Timeline/SNV/Profile specific logs
+   - Both sections: auto-scroll, independently scrollable
+   - Add divider line between sections
+   - Update all console.log calls to use correct categories
+
+2. **Continue SNV Implementation**
+   - Componentize note header (shared between Timeline and SNV)
+   - Create SingleNoteView component (fetch note by nevent ID)
+   - Implement full note display (no "Show More" truncation)
+   - Add Interaction Status Line (ISZ): Likes, Reposts, Zaps, Analytics
+   - Add Reply list below ISZ
+
+3. **State Migration (if time)**
+   - Migrate Timeline state to AppState
+   - Migrate User state to AppState
+   - Remove redundant state from components
+
+**Files modified today:**
+- src/services/Router.ts (NEW)
+- src/services/AppState.ts (NEW)
+- src/App.ts (route setup, view switching)
+- src/components/layout/MainLayout.ts (home link + router integration)
+- src/components/ui/NoteUI.ts (click handlers for navigation)
+
+**Known issues to address:**
+- DebugLogger partially modified but changes reverted - needs full rewrite for 2-section layout
+- SNV only shows placeholder - need actual component
+- No state persistence between route changes yet
+- Timeline state not yet in AppState
+
+**Current Status:** Router + AppState infrastructure complete, ready to build actual SNV component.
