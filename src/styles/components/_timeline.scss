@@ -112,6 +112,52 @@
       }
     }
 
+    // Collapsible wrapper for content + media + quotes
+    .collapsible-wrapper {
+      // Collapsible long notes (> 40vh)
+      &.is-collapsed {
+        max-height: 40vh;
+        overflow: hidden;
+        position: relative;
+
+        // Fade out gradient at bottom
+        &::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 60px;
+          background: linear-gradient(to bottom, transparent, $color-1);
+          pointer-events: none;
+        }
+      }
+
+      &.is-expanded {
+        max-height: none;
+      }
+    }
+
+    // Show More button
+    .show-more-btn {
+      background: transparent;
+      border: 1px solid $color-4;
+      color: $color-4;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      margin: 0.5rem auto 0;
+      width: auto;
+      display: block;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: $color-2;
+        border-color: $color-4;
+      }
+    }
+
     .event-footer {
       @include flex-between;
       font-size: 0.75rem;

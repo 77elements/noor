@@ -87,6 +87,10 @@ export class NoteUI {
   // Maximum nesting depth for quoted notes (prevents infinite recursion)
   private static readonly MAX_NESTING_DEPTH = 2;
 
+  // Collapsible note thresholds (in viewport height units)
+  private static readonly COLLAPSIBLE_HEIGHT_THRESHOLD = 0.40; // 40vh - collapse if taller than this
+  private static readonly COLLAPSIBLE_MIN_DIFFERENCE = 0.05;   // 5vh - only collapse if difference is significant
+
   /**
    * Create HTML element for any nostr event (processes content internally)
    * NOW SYNCHRONOUS - returns immediately with skeleton, background tasks update DOM
@@ -562,6 +566,11 @@ export class NoteUI {
     // Store reference for cleanup
     NoteUI.noteHeaders.set(note.id, noteHeader);
 
+    // Setup collapsible for long notes (only for top-level notes)
+    if (depth === 0) {
+      NoteUI.setupCollapsible(element);
+    }
+
     return element;
   }
 
@@ -758,5 +767,125 @@ export class NoteUI {
    */
   static cleanupAll(): void {
     NoteUI.noteHeaders.clear();
+  }
+
+  /**
+   * Setup collapsible for a note
+   */
+  private static setupCollapsible(noteElement: HTMLElement): void {
+    // Create wrapper for collapsible content (text + media + quotes)
+    const contentEl = noteElement.querySelector('.event-content') as HTMLElement;
+    const mediaEl = noteElement.querySelector('.note-media') as HTMLElement;
+    const quotesEl = noteElement.querySelector('.quoted-notes-container') as HTMLElement;
+    const footerEl = noteElement.querySelector('.event-footer') as HTMLElement;
+
+    if (!contentEl) return;
+
+    // Wrap collapsible content
+    const collapsibleWrapper = document.createElement('div');
+    collapsibleWrapper.className = 'collapsible-wrapper';
+
+    // Move content, media, quotes into wrapper (before footer)
+    const itemsToWrap = [contentEl, mediaEl, quotesEl].filter(el => el);
+    itemsToWrap.forEach(el => {
+      collapsibleWrapper.appendChild(el);
+    });
+
+    // Insert wrapper before footer
+    if (footerEl) {
+      footerEl.before(collapsibleWrapper);
+    } else {
+      noteElement.appendChild(collapsibleWrapper);
+    }
+
+    // Create Show More button
+    const showMoreBtn = document.createElement('button');
+    showMoreBtn.className = 'show-more-btn';
+    showMoreBtn.textContent = 'Show More';
+    showMoreBtn.style.display = 'none'; // Hidden by default
+
+    // Insert button before footer
+    if (footerEl) {
+      footerEl.before(showMoreBtn);
+    } else {
+      noteElement.appendChild(showMoreBtn);
+    }
+
+    // Toggle on click
+    showMoreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isCollapsed = collapsibleWrapper.classList.contains('is-collapsed');
+
+      if (isCollapsed) {
+        collapsibleWrapper.classList.remove('is-collapsed');
+        collapsibleWrapper.classList.add('is-expanded');
+        showMoreBtn.textContent = 'Show Less';
+      } else {
+        collapsibleWrapper.classList.add('is-collapsed');
+        collapsibleWrapper.classList.remove('is-expanded');
+        showMoreBtn.textContent = 'Show More';
+      }
+    });
+
+    // Wait for images/media to load before checking height
+    const images = noteElement.querySelectorAll('img, video');
+    if (images.length > 0) {
+      let loadedCount = 0;
+      const totalImages = images.length;
+
+      const checkAllLoaded = () => {
+        loadedCount++;
+        if (loadedCount === totalImages) {
+          // All images/videos loaded, now check height
+          NoteUI.checkAndCollapseNote(collapsibleWrapper, showMoreBtn);
+        }
+      };
+
+      images.forEach((media) => {
+        if (media.tagName === 'VIDEO') {
+          const video = media as HTMLVideoElement;
+          // Video uses readyState, not complete
+          if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+            checkAllLoaded();
+          } else {
+            video.addEventListener('loadeddata', checkAllLoaded);
+            video.addEventListener('error', checkAllLoaded);
+          }
+        } else {
+          const img = media as HTMLImageElement;
+          if (img.complete) {
+            checkAllLoaded();
+          } else {
+            img.addEventListener('load', checkAllLoaded);
+            img.addEventListener('error', checkAllLoaded);
+          }
+        }
+      });
+    } else {
+      // No images/videos, check immediately
+      NoteUI.checkAndCollapseNote(collapsibleWrapper, showMoreBtn);
+    }
+  }
+
+  /**
+   * Check note height and collapse if needed
+   * Only collapses if note is significantly taller than threshold
+   */
+  private static checkAndCollapseNote(wrapperEl: HTMLElement, btnEl: HTMLElement): void {
+    const viewportHeight = window.innerHeight;
+    const contentHeight = wrapperEl.scrollHeight;
+
+    const collapseThreshold = viewportHeight * NoteUI.COLLAPSIBLE_HEIGHT_THRESHOLD;
+    const minDifference = viewportHeight * NoteUI.COLLAPSIBLE_MIN_DIFFERENCE;
+
+    // Only show button if content is SIGNIFICANTLY taller than threshold
+    // Example: content must be > 45vh to collapse to 40vh (if min difference is 5vh)
+    if (contentHeight > collapseThreshold + minDifference) {
+      btnEl.style.display = 'block';
+      wrapperEl.classList.add('is-collapsed');
+    } else {
+      // Not worth collapsing - show full height
+      btnEl.style.display = 'none';
+    }
   }
 }
