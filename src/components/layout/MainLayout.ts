@@ -7,6 +7,7 @@ import { AuthComponent } from '../auth/AuthComponent';
 import { DebugLogger } from '../debug/DebugLogger';
 import { UserStatus } from '../ui/UserStatus';
 import { CacheControl } from '../ui/CacheControl';
+import { Router } from '../../services/Router';
 
 export class MainLayout {
   private element: HTMLElement;
@@ -23,7 +24,22 @@ export class MainLayout {
       showStats: true,
       showClearButton: true
     });
+    this.setupNavigationLinks();
     this.initializeContent();
+  }
+
+  /**
+   * Setup navigation links to use router instead of page reload
+   */
+  private setupNavigationLinks(): void {
+    const homeLink = this.element.querySelector('.sidebar a[href="/"]');
+    if (homeLink) {
+      homeLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        const router = Router.getInstance();
+        router.navigate('/');
+      });
+    }
   }
 
   /**
@@ -39,7 +55,7 @@ export class MainLayout {
             <!-- Logo container for later -->
           </div>
           <ul>
-            <li>Home</li>
+            <li><a href="/">Home</a></li>
             <li>Profile</li>
             <li>Messages</li>
             <li>Settings</li>

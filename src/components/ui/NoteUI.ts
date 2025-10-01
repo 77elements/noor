@@ -8,6 +8,7 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import { NoteHeader } from './NoteHeader';
 import { QuoteNoteFetcher, type QuoteFetchError } from '../../services/QuoteNoteFetcher';
 import { UserProfileService } from '../../services/UserProfileService';
+import { Router } from '../../services/Router';
 import { renderMediaContent } from '../../helpers/renderMediaContent';
 import { renderQuotedReferencesPlaceholder } from '../../helpers/renderQuotedReferencesPlaceholder';
 import { npubToUsername } from '../../helpers/npubToUsername';
@@ -18,6 +19,7 @@ import { formatHashtags } from '../../helpers/formatHashtags';
 import { formatQuotedReferences } from '../../helpers/formatQuotedReferences';
 import { convertLineBreaks } from '../../helpers/convertLineBreaks';
 import { extractMedia } from '../../helpers/extractMedia';
+import { nip19 } from 'nostr-tools';
 import { extractLinks } from '../../helpers/extractLinks';
 import { extractHashtags } from '../../helpers/extractHashtags';
 import { extractQuotedReferences } from '../../helpers/extractQuotedReferences';
@@ -538,6 +540,31 @@ export class NoteUI {
     if (headerContainer) {
       headerContainer.appendChild(noteHeader.getElement());
     }
+
+    // Add click handler to navigate to Single Note View
+    // Click on note body (exclude links, images, videos, buttons)
+    noteDiv.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+
+      // Don't navigate if clicking on interactive elements
+      if (
+        target.tagName === 'A' ||
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'IMG' ||
+        target.tagName === 'VIDEO' ||
+        target.closest('a') ||
+        target.closest('button') ||
+        target.closest('.quoted-note') ||
+        target.closest('.event-footer')
+      ) {
+        return;
+      }
+
+      // Navigate to Single Note View
+      const router = Router.getInstance();
+      const nevent = nip19.neventEncode({ id: note.id });
+      router.navigate(`/note/${nevent}`);
+    });
 
     return { element: noteDiv, noteHeader };
   }
