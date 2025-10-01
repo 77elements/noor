@@ -54,25 +54,20 @@ export class TimelineLoader {
     let relaysUsed = 0;
 
     // Strategy: Use only standard relays (outbound relays cause too many connections/timeouts)
-    const allRelays = await this.relayDiscovery.getCombinedRelays(followingPubkeys, false);
+    const result = await this.eventFetch.fetchEvents({
+      timeWindowHours: 1, // Initial load: get events from last 1 hour
+      authors: followingPubkeys,
+      useOutboundRelays: false
+    });
 
-    if (allRelays.length > 0) {
-      const result = await this.eventFetch.fetchEvents({
-        timeWindowHours: 1, // Initial load: get events from last 1 hour
-        relays: allRelays,
-        authors: followingPubkeys
-      });
+    result.events.forEach(event => {
+      if (!allEvents.has(event.id)) {
+        allEvents.set(event.id, event);
+      }
+    });
 
-      result.events.forEach(event => {
-        if (!allEvents.has(event.id)) {
-          allEvents.set(event.id, event);
-        }
-      });
-
-      totalFetched += result.events.length;
-      relaysUsed += allRelays.length;
-      // console.log(`📡 COMBINED RELAYS: ${result.events.length} events from ${allRelays.length} relays (standard + outbound)`);
-    }
+    totalFetched += result.events.length;
+    relaysUsed += result.relayStats.size;
 
     // Sort and filter
     const events = Array.from(allEvents.values());

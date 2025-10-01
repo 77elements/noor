@@ -55,26 +55,21 @@ export class LoadMore {
     let relaysUsed = 0;
 
     // Strategy: Use only standard relays (outbound relays cause too many connections/timeouts)
-    const allRelays = await this.relayDiscovery.getCombinedRelays(followingPubkeys, false);
+    const result = await this.eventFetch.fetchEvents({
+      timeWindowHours: 3, // Larger window to ensure more events (was 1 hour)
+      authors: followingPubkeys,
+      until: oldestEventTimestamp - 1, // Start 1 second before oldest to avoid overlap
+      useOutboundRelays: false
+    });
 
-    if (allRelays.length > 0) {
-      const result = await this.eventFetch.fetchEvents({
-        timeWindowHours: 3, // Larger window to ensure more events (was 1 hour)
-        relays: allRelays,
-        authors: followingPubkeys,
-        until: oldestEventTimestamp - 1 // Start 1 second before oldest to avoid overlap
-      });
+    result.events.forEach(event => {
+      if (!allEvents.has(event.id)) {
+        allEvents.set(event.id, event);
+      }
+    });
 
-      result.events.forEach(event => {
-        if (!allEvents.has(event.id)) {
-          allEvents.set(event.id, event);
-        }
-      });
-
-      totalFetched += result.events.length;
-      relaysUsed += allRelays.length;
-      // console.log(`📡 LOAD MORE COMBINED: ${result.events.length} events from ${allRelays.length} relays (standard + outbound)`);
-    }
+    totalFetched += result.events.length;
+    relaysUsed += result.relayStats.size;
 
     // Sort and filter
     const events = Array.from(allEvents.values());

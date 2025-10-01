@@ -8,16 +8,18 @@
 import { SimplePool } from 'nostr-tools/pool';
 import type { Event as NostrEvent } from 'nostr-tools';
 import { fetchNostrEvents } from '../helpers/fetchNostrEvents';
+import { RelayConfig } from './RelayConfig';
+import { RelayDiscoveryService } from './RelayDiscoveryService';
 
 export interface FetchRequest {
   eventsPerRelay?: number; // Optional: for count-based fetching
   timeWindowHours?: number; // Optional: for time-based fetching (e.g. 3 hours)
-  relays: string[];
   authors: string[];
   until?: number;
   kinds?: number[];
   userPubkey?: string; // Optional: for diversity control
   maxUserEventsPerRelay?: number; // Optional: limit user's own events per relay
+  useOutboundRelays?: boolean; // Optional: include outbound relays from followed users (default: false)
 }
 
 export interface FetchResult {
@@ -28,9 +30,13 @@ export interface FetchResult {
 export class EventFetchService {
   private static instance: EventFetchService;
   private pool: SimplePool;
+  private relayConfig: RelayConfig;
+  private relayDiscovery: RelayDiscoveryService;
 
   private constructor() {
     this.pool = new SimplePool();
+    this.relayConfig = RelayConfig.getInstance();
+    this.relayDiscovery = RelayDiscoveryService.getInstance();
   }
 
   public static getInstance(): EventFetchService {
@@ -43,18 +49,22 @@ export class EventFetchService {
   /**
    * Fetch exactly what was requested with optional diversity control
    * Now uses universal fetchNostrEvents helper
+   * Automatically gets relays from RelayConfig + RelayDiscoveryService
    */
   public async fetchEvents(request: FetchRequest): Promise<FetchResult> {
     const {
       eventsPerRelay,
       timeWindowHours,
-      relays,
       authors,
       until,
       kinds = [1, 6], // Default: text notes + reposts
       userPubkey,
-      maxUserEventsPerRelay
+      maxUserEventsPerRelay,
+      useOutboundRelays = false
     } = request;
+
+    // Get relays from config + discovery
+    const relays = await this.relayDiscovery.getCombinedRelays(authors, useOutboundRelays);
 
     const isTimeBased = timeWindowHours !== undefined;
     const diversityMode = userPubkey && maxUserEventsPerRelay !== undefined;
