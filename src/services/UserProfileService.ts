@@ -6,7 +6,6 @@
 
 import { UserService } from './UserService';
 import type { Event as NostrEvent } from 'nostr-tools';
-import { shortenPubkey } from '../helpers/shortenPubkey';
 import { generateFallbackAvatar } from '../helpers/generateFallbackAvatar';
 import { generateFallbackUsername } from '../helpers/generateFallbackUsername';
 import { cacheGet } from '../helpers/cacheGet';

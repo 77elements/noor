@@ -96,20 +96,25 @@ export class LoadMore {
    */
   private filterReplies(events: NostrEvent[]): NostrEvent[] {
     return events.filter(event => {
+      // 1. Always allow reposts (kind 6) - they have 'e' tags but aren't replies
+      if (event.kind === 6) {
+        return true;
+      }
+
       const content = event.content.trim();
 
-      // 1. Content-based detection: starts with @username or npub
+      // 2. Content-based detection: starts with @username or npub
       if (content.match(/^@\w+/) || content.startsWith('npub1')) {
         return false; // This is a reply
       }
 
-      // 2. Tag-based detection: has 'e' tags (reply to event)
+      // 3. Tag-based detection: has 'e' tags (reply to event)
       const eTags = event.tags.filter(tag => tag[0] === 'e');
       if (eTags.length > 0) {
         return false; // This is a reply to another event
       }
 
-      // 3. Allow: reposts (kind 6), quotes, and original posts
+      // 4. Allow: quotes and original posts
       return true;
     });
   }

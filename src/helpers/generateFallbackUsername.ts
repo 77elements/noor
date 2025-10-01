@@ -1,10 +1,8 @@
 /**
  * Generate fallback username from pubkey
- * Single purpose: pubkey → shortened display name
+ * Single purpose: pubkey → full pubkey (NO SHORTENING!)
  */
 
-import { shortenPubkey } from './shortenPubkey';
-
 export function generateFallbackUsername(pubkey: string): string {
-  return shortenPubkey(pubkey);
+  return pubkey;
 }

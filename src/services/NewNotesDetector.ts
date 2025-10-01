@@ -22,6 +22,7 @@ export class NewNotesDetector {
   private lastCheckedTimestamp: number = 0;
   private callback: NewNotesCallback | null = null;
   private followingPubkeys: string[] = [];
+  private includeReplies: boolean = false;
 
   private constructor() {
     this.pool = new SimplePool();
@@ -40,12 +41,14 @@ export class NewNotesDetector {
    * @param followingPubkeys - List of pubkeys to check for new notes
    * @param lastLoadedTimestamp - Timestamp of the most recent note in timeline
    * @param callback - Function to call when new notes are detected
+   * @param includeReplies - Whether to include reply notes
    * @param delayMs - Delay before starting polling (default: 10000ms)
    */
   public startPolling(
     followingPubkeys: string[],
     lastLoadedTimestamp: number,
     callback: NewNotesCallback,
+    includeReplies: boolean = false,
     delayMs: number = 10000
   ): void {
     // Stop any existing polling
@@ -54,8 +57,9 @@ export class NewNotesDetector {
     this.followingPubkeys = followingPubkeys;
     this.lastCheckedTimestamp = lastLoadedTimestamp;
     this.callback = callback;
+    this.includeReplies = includeReplies;
 
-    console.log(`🔔 NEW NOTES DETECTOR: Starting polling in ${delayMs / 1000}s...`);
+    console.log(`🔔 NEW NOTES DETECTOR: Starting polling in ${delayMs / 1000}s (includeReplies: ${includeReplies})...`);
 
     // Start polling after delay
     setTimeout(() => {
@@ -110,7 +114,7 @@ export class NewNotesDetector {
 
       // Query for new notes since last check
       const filter: Filter = {
-        kinds: [1], // Text notes only
+        kinds: [1, 6], // Text notes + reposts
         authors: this.followingPubkeys,
         since: this.lastCheckedTimestamp + 1, // Everything after last check
         until: now,
@@ -121,17 +125,20 @@ export class NewNotesDetector {
 
       const events = await this.pool.list(readRelays, [filter]);
 
-      if (events.length > 0) {
-        console.log(`🔔 FOUND ${events.length} NEW NOTES!`);
+      // Filter replies if needed
+      const filteredEvents = this.includeReplies ? events : this.filterReplies(events);
+
+      if (filteredEvents.length > 0) {
+        console.log(`🔔 FOUND ${filteredEvents.length} NEW NOTES (${events.length} total, ${events.length - filteredEvents.length} replies filtered)!`);
 
         // Extract unique author pubkeys (newest first, max 4)
         const uniqueAuthors: string[] = [];
         const seen = new Set<string>();
 
         // Sort by timestamp (newest first)
-        events.sort((a, b) => b.created_at - a.created_at);
+        filteredEvents.sort((a, b) => b.created_at - a.created_at);
 
-        for (const event of events) {
+        for (const event of filteredEvents) {
           if (!seen.has(event.pubkey)) {
             uniqueAuthors.push(event.pubkey);
             seen.add(event.pubkey);
@@ -140,7 +147,7 @@ export class NewNotesDetector {
         }
 
         const info: NewNotesInfo = {
-          count: events.length,
+          count: filteredEvents.length,
           authorPubkeys: uniqueAuthors
         };
 
@@ -153,6 +160,34 @@ export class NewNotesDetector {
     } catch (error) {
       console.error('🔔 NEW NOTES DETECTOR ERROR:', error);
     }
+  }
+
+  /**
+   * Filter out reply notes (same logic as TimelineLoader)
+   */
+  private filterReplies(events: NostrEvent[]): NostrEvent[] {
+    return events.filter(event => {
+      // 1. Always allow reposts (kind 6) - they have 'e' tags but aren't replies
+      if (event.kind === 6) {
+        return true;
+      }
+
+      const content = event.content.trim();
+
+      // 2. Content-based detection: starts with @username or npub
+      if (content.match(/^@\w+/) || content.startsWith('npub1')) {
+        return false; // This is a reply
+      }
+
+      // 3. Tag-based detection: has 'e' tags (reply to event)
+      const eTags = event.tags.filter(tag => tag[0] === 'e');
+      if (eTags.length > 0) {
+        return false; // This is a reply to another event
+      }
+
+      // 4. Allow: quotes and original posts
+      return true;
+    });
   }
 
   /**

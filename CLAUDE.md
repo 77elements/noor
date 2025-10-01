@@ -136,3 +136,59 @@ Then we'll take 1-2 steps back from the whole thing and consider more architectu
 # ═══════════════════════════════════════════════════════════════
 # 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY
 # ═══════════════════════════════════════════════════════════════
+
+## 🚨 CRITICAL: USER IDENTITY DISPLAY RULES (2025-10-01)
+
+**ABSOLUTE RULE - NO EXCEPTIONS:**
+
+1. **HEX pubkeys**: NEVER visible in Frontend UI - internal use only
+2. **NPUB**: ONLY in URLs (e.g. `/profile/{npub}`) - NEVER displayed to user
+3. **USERNAME**: The ONLY legitimate user representation in the UI
+
+**Implementation:**
+- ✅ Have username? → Display it
+- ✅ No username? → Fetch profile OR show placeholder/loading state
+- ❌ NEVER "shorten" hex/npub for display (e.g. "npub1abc...xyz")
+- ❌ NEVER show raw technical IDs to users
+
+**Why this rule exists:**
+Claude repeatedly built "shortening" helpers (shortenPubkey, shortenNpub, etc.) WITHOUT being asked, then stumbled over them constantly. Hex and npub are TECHNICAL IDENTIFIERS, not user-facing data. The ONLY valid "shortened" representation of a user is their ACTUAL USERNAME.
+
+**If you catch yourself:**
+- Writing a `shorten*` helper
+- Showing hex/npub in UI (outside URLs)
+- Using `slice()` or `substring()` on pubkeys for display
+
+→ **STOP. You're doing it wrong. Use usernames or fetch them.**
+
+## ✅ FIXED: Repost Username Display (2025-10-01)
+
+**Problem:** Repost headers showed hex pubkeys instead of usernames (e.g. "e0921d610ee655396... reposted")
+
+**Root Cause:**
+- `npubToUsername()` called `UserProfileService.getUsername(hexPubkey)`
+- When no profile in cache, returned `generateFallbackUsername(hexPubkey)` = hex pubkey itself
+- Check `!cachedUsername.includes('...')` was wrong - hex has no '...', so it passed through
+
+**Solution:**
+1. Fixed fallback detection: `cachedUsername !== hexPubkey` (not contains '...')
+2. Refactored `npubToUsername()` to support dual modes via function overloading:
+   - Simple mode: `npubToUsername(npub)` → returns username string
+   - Legacy HTML mode: `npubToUsername(html, profileResolver)` → processes HTML text
+3. Added async profile fetching in simple mode (fire and forget)
+4. Subscribe to profile updates in `createRepostElement()` to refresh DOM when profile loads
+
+**Progressive Enhancement Flow:**
+1. Display npub as initial fallback (not hex!)
+2. Trigger `getUserProfile()` async
+3. Subscribe to profile updates
+4. Update DOM when profile arrives: npub → username
+
+**Files Changed:**
+- src/helpers/npubToUsername.ts - function overloading + async fetch trigger
+- src/components/ui/NoteUI.ts - profile subscription for repost header
+- src/helpers/shortenPubkey.ts - DELETED
+- src/helpers/generateFallbackUsername.ts - removed shortening
+- src/helpers/shortenNpub.ts - removed shortening
+
+**Result:** Reposts now show "@username reposted" with progressive enhancement (npub → username).

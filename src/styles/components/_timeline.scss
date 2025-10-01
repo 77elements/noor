@@ -12,7 +12,7 @@
 
   .timeline-header {
     @include flex-between;
-    padding: 1rem;
+    padding: 0 0 1rem 0;
     border-bottom: 1px solid $color-2;
     background: $color-1;
 
@@ -81,7 +81,6 @@
         width: 24px;
         height: 24px;
         border-radius: 50%;
-        border: 2px solid $color-1;
         background-size: cover;
         background-position: center;
         background-color: $color-3;

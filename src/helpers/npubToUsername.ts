@@ -1,9 +1,10 @@
 /**
- * Convert nprofile or npub to username
- * SIMPLE VERSION - NO BULLSHIT
+ * Convert npub to username
+ * Can return plain string OR HTML with links
  */
 
 import { bech32 } from 'bech32';
+import { UserProfileService } from '../services/UserProfileService';
 
 export interface Profile {
   name?: string;
@@ -13,7 +14,85 @@ export interface Profile {
 
 export type ProfileResolver = (hexPubkey: string) => Profile | null;
 
+/**
+ * Simple mode: npub → username string
+ * @param npub - Single npub string
+ * @param asHTML - If true, returns HTML with link. Default: false
+ * @returns Username string or HTML link
+ */
+export function npubToUsername(npub: string, asHTML?: false): string;
+export function npubToUsername(npub: string, asHTML: true, profileResolver: ProfileResolver): string;
 export function npubToUsername(
+  npubOrHtml: string,
+  asHTML: boolean | ProfileResolver = false,
+  profileResolver?: ProfileResolver
+): string {
+  // Legacy mode: HTML text processing (when second param is ProfileResolver)
+  if (typeof asHTML === 'function') {
+    return npubToUsernameHTML(npubOrHtml, asHTML as ProfileResolver);
+  }
+
+  // Simple mode: single npub to username
+  if (!asHTML) {
+    return npubToUsernameSimple(npubOrHtml);
+  }
+
+  // HTML mode: single npub to HTML link
+  if (profileResolver) {
+    return npubToUsernameHTMLSingle(npubOrHtml, profileResolver);
+  }
+
+  return npubOrHtml;
+}
+
+/**
+ * Simple mode: npub → username (no HTML)
+ * Returns display name from cache, or FULL npub as fallback
+ */
+function npubToUsernameSimple(npub: string): string {
+  try {
+    const hexPubkey = npubToHex(npub);
+
+    // Try to get cached username (synchronous)
+    const userProfileService = UserProfileService.getInstance();
+    const cachedUsername = userProfileService.getUsername(hexPubkey);
+
+    // If we got a real name (not hex/npub fallback), use it
+    // Check if it's NOT the hex pubkey (fallback)
+    if (cachedUsername && cachedUsername !== hexPubkey) {
+      return cachedUsername;
+    }
+
+    // Trigger async profile fetch (fire and forget)
+    userProfileService.getUserProfile(hexPubkey).catch(() => {
+      // Ignore errors, profile will stay as fallback
+    });
+
+    // Fallback to FULL npub (NO SHORTENING!)
+    return npub;
+  } catch {
+    return npub;
+  }
+}
+
+/**
+ * HTML mode: single npub → HTML link with username
+ */
+function npubToUsernameHTMLSingle(npub: string, profileResolver: ProfileResolver): string {
+  try {
+    const hexPubkey = npubToHex(npub);
+    const profile = profileResolver(hexPubkey);
+    const username = profile?.display_name || profile?.name || npub;
+    return `<a href="/profile/${npub}">@${username}</a>`;
+  } catch {
+    return npub;
+  }
+}
+
+/**
+ * Legacy mode: HTML text with multiple npub/nprofile mentions
+ */
+function npubToUsernameHTML(
   htmlText: string,
   profileResolver: ProfileResolver
 ): string {
@@ -43,6 +122,11 @@ export function npubToUsername(
   // Step 2: Handle npub (with or without nostr: prefix)
   // BUT skip npubs that are already inside links we created above
   text = text.replace(/(nostr:)?(npub[a-z0-9]+)/gi, (fullMatch, prefix, npub, offset, string) => {
+    // Skip invalid/too short npubs (valid npub is at least 59 chars)
+    if (npub.length < 59) {
+      return fullMatch;
+    }
+
     // Check if this npub is inside a link we already created
     const before = string.substring(Math.max(0, offset - 60), offset);
 

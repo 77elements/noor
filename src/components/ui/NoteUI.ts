@@ -451,16 +451,28 @@ export class NoteUI {
     repostDiv.dataset.eventId = note.id;
 
     // Repost header showing who reposted
-    const reposterName = note.reposter?.profile?.display_name ||
-                        note.reposter?.profile?.name ||
-                        note.reposter?.pubkey.slice(0, 8) || 'Unknown';
+    const reposterPubkey = note.reposter?.pubkey || '';
+    const reposterNpub = reposterPubkey ? hexToNpub(reposterPubkey) || '' : '';
+    const reposterName = reposterNpub ? npubToUsername(reposterNpub) : 'Unknown';
 
     const repostHeader = document.createElement('div');
     repostHeader.className = 'repost-header';
     repostHeader.innerHTML = `
       <span class="repost-icon">🔄</span>
-      <span class="reposter-name">${reposterName} reposted</span>
+      <a href="/profile/${reposterNpub}" class="reposter-name">${reposterName}</a> reposted
     `;
+
+    // Subscribe to profile updates to refresh username when loaded
+    if (reposterPubkey) {
+      const userProfileService = UserProfileService.getInstance();
+      userProfileService.subscribeToProfile(reposterPubkey, (profile) => {
+        const newUsername = profile.display_name || profile.name || reposterNpub;
+        const reposterNameElement = repostHeader.querySelector('.reposter-name');
+        if (reposterNameElement && newUsername !== reposterNpub) {
+          reposterNameElement.textContent = `@${newUsername}`;
+        }
+      });
+    }
 
     // Original note content with original author (same depth, not nested deeper)
     const originalNoteElement = NoteUI.createOriginalNoteElement(note, depth);
