@@ -598,12 +598,9 @@ export class NoteUI {
     quoteNum: number,
     totalQuotes: number
   ): Promise<void> {
-    const quoteStart = performance.now();
-
     try {
       // Fetch the quoted event
       const result = await NoteUI.quoteFetcher.fetchQuotedEventWithError(ref.fullMatch);
-      const fetchDuration = ((performance.now() - quoteStart) / 1000).toFixed(3);
 
       if (result.success) {
         // Render the quote note (SYNCHRONOUS now - no await needed!)
@@ -622,18 +619,14 @@ export class NoteUI {
 
         // Replace skeleton with actual quote (progressive DOM update)
         skeleton.replaceWith(quoteBox);
-
-        console.log(`   ✓ Quote ${quoteNum}/${totalQuotes}: ${result.event.id} (${fetchDuration}s)`);
       } else {
         // Error - show error message
         const errorElement = NoteUI.createQuoteError(result.error, ref.fullMatch);
         skeleton.replaceWith(errorElement);
-
-        console.log(`   ✗ Quote ${quoteNum}/${totalQuotes}: ${result.error.type} (${fetchDuration}s)`);
       }
 
     } catch (error) {
-      console.error(`❌ Quote ${quoteNum}/${totalQuotes} failed:`, error);
+      console.error(`❌ Quote fetch failed:`, error);
       skeleton.remove();
     }
   }

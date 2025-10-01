@@ -247,9 +247,6 @@ export class TimelineUI {
     const eventsContainer = this.element.querySelector('.timeline-events');
     if (!eventsContainer) return;
 
-    const startTime = performance.now();
-    console.log(`➕ ===== APPENDING ${newEvents.length} EVENTS (PARALLEL) =====`);
-
     try {
       // Render ALL notes SYNCHRONOUSLY (no await, instant!)
       const fragment = document.createDocumentFragment();
@@ -257,13 +254,9 @@ export class TimelineUI {
       newEvents.forEach((event, idx) => {
         const noteElement = this.createNoteElement(event, idx);
         fragment.appendChild(noteElement);
-        console.log(`   ✓ Note ${idx + 1}/${newEvents.length}: ${event.id}`);
       });
 
       eventsContainer.appendChild(fragment);
-
-      const duration = ((performance.now() - startTime) / 1000).toFixed(3);
-      console.log(`✅ APPEND COMPLETE: ${newEvents.length}/${newEvents.length} notes (${duration}s)`);
 
     } catch (error) {
       console.error(`❌ APPEND FAILED:`, error);
