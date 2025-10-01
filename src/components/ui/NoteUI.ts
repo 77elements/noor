@@ -89,11 +89,12 @@ export class NoteUI {
 
   /**
    * Create HTML element for any nostr event (processes content internally)
+   * NOW SYNCHRONOUS - returns immediately with skeleton, background tasks update DOM
    * @param event - The Nostr event to render
    * @param index - Optional index for tracking position
    * @param depth - Current nesting depth (0 = top-level, increases for each quoted note)
    */
-  static async createNoteElement(event: NostrEvent, index?: number, depth: number = 0): Promise<HTMLElement> {
+  static createNoteElement(event: NostrEvent, index?: number, depth: number = 0): HTMLElement {
     try {
       // Check if we've exceeded maximum nesting depth
       if (depth > NoteUI.MAX_NESTING_DEPTH) {
@@ -101,14 +102,14 @@ export class NoteUI {
         return NoteUI.createMaxDepthElement(event);
       }
 
-      // Process the event internally with direct helpers
-      const note = await NoteUI.processNote(event);
+      // Process the event internally with direct helpers (SYNCHRONOUS now!)
+      const note = NoteUI.processNote(event);
 
       switch (note.type) {
         case 'repost':
           return NoteUI.createRepostElement(note, depth);
         case 'quote':
-          return await NoteUI.createQuoteElement(note, depth);
+          return NoteUI.createQuoteElement(note, depth);
         default:
           return NoteUI.createOriginalNoteElement(note, depth);
       }
@@ -120,17 +121,18 @@ export class NoteUI {
 
   /**
    * Process note using direct helpers (replaces NoteContentProcessing)
+   * SYNCHRONOUS - no blocking calls
    */
-  private static async processNote(event: NostrEvent): Promise<ProcessedNote> {
+  private static processNote(event: NostrEvent): ProcessedNote {
     try {
       switch (event.kind) {
         case 1:
-          return await NoteUI.processTextNote(event);
+          return NoteUI.processTextNote(event);
         case 6:
-          return await NoteUI.processRepost(event);
+          return NoteUI.processRepost(event);
         default:
           console.warn(`⚠️ Unsupported note kind: ${event.kind}`);
-          return await NoteUI.processTextNote(event);
+          return NoteUI.processTextNote(event);
       }
     } catch (error) {
       console.error(`❌ ERROR processing note ${event.id.slice(0, 8)}:`, error);
@@ -154,26 +156,26 @@ export class NoteUI {
 
   /**
    * Process text note (kind 1) with direct helpers
+   * SYNCHRONOUS - no blocking calls
    */
-  private static async processTextNote(event: NostrEvent): Promise<ProcessedNote> {
+  private static processTextNote(event: NostrEvent): ProcessedNote {
     const authorProfile = NoteUI.getNonBlockingProfile(event.pubkey);
     const quoteTags = event.tags.filter(tag => tag[0] === 'q');
     const isQuote = quoteTags.length > 0;
 
-    // CRITICAL: Load mention profiles BEFORE processing content (blockingly)
-    // This ensures npubToUsername has the profiles in cache when it runs
+    // NON-BLOCKING: Trigger profile fetch in background (fire and forget)
     const mentionTags = event.tags.filter(tag => tag[0] === 'p' && tag[3] === 'mention');
     if (mentionTags.length > 0) {
       const mentionPubkeys = mentionTags.map(tag => tag[1]);
-      const profiles = await NoteUI.userProfileService.getUserProfiles(mentionPubkeys);
-
-      // Copy profiles to NoteUI.profileCache so getNonBlockingProfile finds them
-      profiles.forEach((profile, pubkey) => {
-        NoteUI.profileCache.set(pubkey, profile);
-      });
+      // Fire and forget - profiles will update cache when they arrive
+      NoteUI.userProfileService.getUserProfiles(mentionPubkeys).then(profiles => {
+        profiles.forEach((profile, pubkey) => {
+          NoteUI.profileCache.set(pubkey, profile);
+        });
+      }).catch(err => console.warn('Failed to load mention profiles:', err));
     }
 
-    const processedContent = await NoteUI.processContent(event.content);
+    const processedContent = NoteUI.processContent(event.content);
 
     return {
       id: event.id,
@@ -194,8 +196,9 @@ export class NoteUI {
 
   /**
    * Process repost (kind 6) with direct helpers
+   * SYNCHRONOUS - no blocking calls
    */
-  private static async processRepost(event: NostrEvent): Promise<ProcessedNote> {
+  private static processRepost(event: NostrEvent): ProcessedNote {
     const reposterProfile = NoteUI.getNonBlockingProfile(event.pubkey);
     const originalEventId = NoteUI.extractOriginalEventId(event);
     const originalAuthorPubkey = NoteUI.extractOriginalAuthorPubkey(event);
@@ -217,7 +220,7 @@ export class NoteUI {
       console.warn('⚠️ Could not parse repost content as JSON');
     }
 
-    const processedContent = await NoteUI.processContent(originalContent);
+    const processedContent = NoteUI.processContent(originalContent);
 
     return {
       id: event.id,
@@ -253,8 +256,9 @@ export class NoteUI {
 
   /**
    * Process content with individual helpers (replaces formatContent)
+   * SYNCHRONOUS - no blocking calls
    */
-  private static async processContent(text: string): Promise<ProcessedNote['content']> {
+  private static processContent(text: string): ProcessedNote['content'] {
     const media = extractMedia(text);
     const links = extractLinks(text);
     const hashtags = extractHashtags(text);
@@ -523,9 +527,10 @@ export class NoteUI {
   }
 
   /**
-   * Create quote element with embedded quoted notes
+   * Create quote element with embedded quoted notes (NON-BLOCKING)
+   * Returns immediately, quotes load in background
    */
-  private static async createQuoteElement(note: ProcessedNote, depth: number): Promise<HTMLElement> {
+  private static createQuoteElement(note: ProcessedNote, depth: number): HTMLElement {
     const { element, noteHeader } = NoteUI.buildNoteStructure(note, {
       cssClass: 'timeline-quote',
       footerLabel: 'Quote',
@@ -535,10 +540,10 @@ export class NoteUI {
     // Store reference for cleanup
     NoteUI.noteHeaders.set(note.id, noteHeader);
 
-    // Render quoted notes with increased depth
+    // Render quoted notes with increased depth (NO AWAIT - fire and forget!)
     const quotedContainer = element.querySelector('.quoted-notes-container');
     if (quotedContainer && note.content.quotedReferences.length > 0) {
-      await NoteUI.renderQuotedNotes(note.content.quotedReferences, quotedContainer, depth + 1);
+      NoteUI.renderQuotedNotes(note.content.quotedReferences, quotedContainer, depth + 1);
     }
 
     return element;
@@ -568,23 +573,41 @@ export class NoteUI {
   }
 
   /**
-   * Render quoted notes as orange quote boxes
+   * Render quoted notes as orange quote boxes (COMPLETELY NON-BLOCKING)
+   * Returns immediately after creating skeletons, all fetching happens in background
    */
-  private static async renderQuotedNotes(quotedReferences: ProcessedNote['content']['quotedReferences'], container: Element, depth: number): Promise<void> {
-    for (const ref of quotedReferences) {
-      // Create skeleton loader immediately (before fetch)
+  private static renderQuotedNotes(quotedReferences: ProcessedNote['content']['quotedReferences'], container: Element, depth: number): void {
+    // Render ALL skeletons immediately (synchronous)
+    quotedReferences.forEach((ref, index) => {
       const skeleton = NoteUI.createQuoteSkeleton();
+      skeleton.dataset.quoteRef = ref.fullMatch;
       container.appendChild(skeleton);
 
-      // Fetch with detailed error information
-      const result = await NoteUI.quoteFetcher.fetchQuotedEventWithError(ref.fullMatch);
+      // Fetch quote in background (fire and forget - no await!)
+      NoteUI.fetchAndRenderQuote(ref, skeleton, depth, index + 1, quotedReferences.length);
+    });
+  }
 
-      // Remove skeleton
-      skeleton.remove();
+  /**
+   * Fetch single quote and update DOM when ready (background task)
+   */
+  private static async fetchAndRenderQuote(
+    ref: ProcessedNote['content']['quotedReferences'][0],
+    skeleton: HTMLElement,
+    depth: number,
+    quoteNum: number,
+    totalQuotes: number
+  ): Promise<void> {
+    const quoteStart = performance.now();
+
+    try {
+      // Fetch the quoted event
+      const result = await NoteUI.quoteFetcher.fetchQuotedEventWithError(ref.fullMatch);
+      const fetchDuration = ((performance.now() - quoteStart) / 1000).toFixed(3);
 
       if (result.success) {
-        // Successfully fetched - render the note
-        const quotedNoteElement = await NoteUI.createNoteElement(result.event, undefined, depth);
+        // Render the quote note (SYNCHRONOUS now - no await needed!)
+        const quotedNoteElement = NoteUI.createNoteElement(result.event, undefined, depth);
 
         // Wrap in quote box
         const quoteBox = document.createElement('div');
@@ -597,12 +620,21 @@ export class NoteUI {
           console.log(`Expand quoted note: ${result.event.id.slice(0, 8)}`);
         });
 
-        container.appendChild(quoteBox);
+        // Replace skeleton with actual quote (progressive DOM update)
+        skeleton.replaceWith(quoteBox);
+
+        console.log(`   ✓ Quote ${quoteNum}/${totalQuotes}: ${result.event.id} (${fetchDuration}s)`);
       } else {
-        // Error occurred - render appropriate error message
+        // Error - show error message
         const errorElement = NoteUI.createQuoteError(result.error, ref.fullMatch);
-        container.appendChild(errorElement);
+        skeleton.replaceWith(errorElement);
+
+        console.log(`   ✗ Quote ${quoteNum}/${totalQuotes}: ${result.error.type} (${fetchDuration}s)`);
       }
+
+    } catch (error) {
+      console.error(`❌ Quote ${quoteNum}/${totalQuotes} failed:`, error);
+      skeleton.remove();
     }
   }
 

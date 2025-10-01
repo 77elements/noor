@@ -115,7 +115,7 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - Jumble.social | Web Client | Github: https://github.com/CodyTseng/jumble
 - Gossip | Desktop Client | Github: https://github.com/mikedilger/gossip
 
-Whenever you (the AI agent) don't know how to implement something, it's worth looking at how they did it.
+Whenever you (the AI agent) don't know how to implement something, it's worth looking at how they did it. When you browse the repositories, browse like a human would do: starting at the front page, clicking through. Otherwise, if you doo it your way, you'll run into multiple 404's.
 
 ## Chaos Mode
 

@@ -224,7 +224,7 @@ export class TimelineUI {
   /**
    * Add a single event to timeline (for real-time updates)
    */
-  private async addEventToTimeline(event: NostrEvent): Promise<void> {
+  private addEventToTimeline(event: NostrEvent): void {
     // Check if event already exists
     if (this.events.some(existing => existing.id === event.id)) {
       return;
@@ -235,62 +235,46 @@ export class TimelineUI {
 
     // Re-render if not too many events (performance optimization)
     if (this.events.length < 200) {
-      await this.renderEvents();
+      this.renderEvents();
     }
   }
 
   /**
    * Append new events to timeline without clearing existing DOM
-   * Uses batching + streaming for better performance
+   * SYNCHRONOUS - instant DOM updates, background tasks for quotes/profiles
    */
-  private async appendNewEvents(newEvents: NostrEvent[]): Promise<void> {
+  private appendNewEvents(newEvents: NostrEvent[]): void {
     const eventsContainer = this.element.querySelector('.timeline-events');
     if (!eventsContainer) return;
 
-    console.log(`➕ APPENDING ${newEvents.length} new events to timeline`);
+    const startTime = performance.now();
+    console.log(`➕ ===== APPENDING ${newEvents.length} EVENTS (PARALLEL) =====`);
 
-    const BATCH_SIZE = 3; // Process 3 events at a time
-    let processedCount = 0;
+    try {
+      // Render ALL notes SYNCHRONOUSLY (no await, instant!)
+      const fragment = document.createDocumentFragment();
 
-    // Process events in batches with streaming
-    for (let i = 0; i < newEvents.length; i += BATCH_SIZE) {
-      const batch = newEvents.slice(i, i + BATCH_SIZE);
+      newEvents.forEach((event, idx) => {
+        const noteElement = this.createNoteElement(event, idx);
+        fragment.appendChild(noteElement);
+        console.log(`   ✓ Note ${idx + 1}/${newEvents.length}: ${event.id}`);
+      });
 
-      // console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(newEvents.length / BATCH_SIZE)} (${batch.length} events)`);
+      eventsContainer.appendChild(fragment);
 
-      try {
-        // Process batch in parallel
-        const batchPromises = batch.map((event, index) =>
-          this.createNoteElement(event, i + index)
-        );
+      const duration = ((performance.now() - startTime) / 1000).toFixed(3);
+      console.log(`✅ APPEND COMPLETE: ${newEvents.length}/${newEvents.length} notes (${duration}s)`);
 
-        const batchElements = await Promise.all(batchPromises);
-
-        // Immediately append each element as it's ready (streaming)
-        batchElements.forEach(noteElement => {
-          eventsContainer.appendChild(noteElement);
-          processedCount++;
-        });
-
-        // console.log(`✅ Batch complete: ${processedCount}/${newEvents.length} events appended`);
-
-        // Small delay between batches to avoid blocking UI
-        if (i + BATCH_SIZE < newEvents.length) {
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
-
-      } catch (error) {
-        console.error(`❌ Error processing batch starting at ${i}:`, error);
-      }
+    } catch (error) {
+      console.error(`❌ APPEND FAILED:`, error);
     }
-
-    console.log(`📱 TIMELINE: Finished appending ${processedCount} events (total: ${this.events.length})`);
   }
 
   /**
    * Render all events using NoteUI components (full refresh)
+   * SYNCHRONOUS - instant rendering
    */
-  private async renderEvents(): Promise<void> {
+  private renderEvents(): void {
     const eventsContainer = this.element.querySelector('.timeline-events');
     if (!eventsContainer) return;
 
@@ -299,19 +283,14 @@ export class TimelineUI {
     // Clear existing events
     eventsContainer.innerHTML = '';
 
-    // Process all events in parallel for performance
-    const notePromises = this.events.map((event, index) =>
-      this.createNoteElement(event, index)
-    );
-
     try {
-      const noteElements = await Promise.all(notePromises);
-      console.log(`✅ RENDERED ${noteElements.length} notes`);
-
-      // Append all note elements
-      noteElements.forEach(noteElement => {
+      // Render all notes SYNCHRONOUSLY
+      this.events.forEach((event, index) => {
+        const noteElement = this.createNoteElement(event, index);
         eventsContainer.appendChild(noteElement);
       });
+
+      console.log(`✅ RENDERED ${this.events.length} notes`);
 
       // Hide empty state if we have events
       if (this.events.length > 0) {
@@ -349,10 +328,11 @@ export class TimelineUI {
 
   /**
    * Create element for nostr event
+   * SYNCHRONOUS - instant DOM creation
    */
-  private async createNoteElement(event: NostrEvent, index: number): Promise<HTMLElement> {
+  private createNoteElement(event: NostrEvent, index: number): HTMLElement {
     // Timeline notes are always top-level (depth = 0)
-    return await NoteUI.createNoteElement(event, index, 0);
+    return NoteUI.createNoteElement(event, index, 0);
   }
 
 
