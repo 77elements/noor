@@ -54,10 +54,49 @@
         border-radius: 4px;
         cursor: pointer;
         font-size: 0.875rem;
+        transition: opacity 0.2s ease;
 
         &:hover {
           opacity: 0.8;
         }
+
+        // New notes variant with stacked avatars
+        &--new-notes {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1rem;
+        }
+      }
+
+      // Stacked avatars container
+      .refresh-btn__avatars {
+        display: flex;
+        align-items: center;
+        margin-right: 0.25rem;
+      }
+
+      // Individual avatar (stacked with negative margin)
+      .refresh-btn__avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid $color-1;
+        background-size: cover;
+        background-position: center;
+        background-color: $color-3;
+        margin-left: -8px; // Overlap previous avatar
+
+        &:first-child {
+          margin-left: 0; // No overlap for first avatar
+        }
+      }
+
+      // Text in new notes button
+      .refresh-btn__text {
+        font-size: 0.875rem;
+        font-weight: 500;
+        white-space: nowrap;
       }
     }
   }

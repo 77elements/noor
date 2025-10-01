@@ -8,9 +8,11 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import { TimelineLoader } from '../../services/TimelineLoader';
 import { LoadMore } from '../../services/LoadMore';
 import { UserService } from '../../services/UserService';
+import { NewNotesDetector, type NewNotesInfo } from '../../services/NewNotesDetector';
 import { NoteHeader } from '../ui/NoteHeader';
 import { NoteUI } from '../ui/NoteUI';
 import { InfiniteScroll } from '../ui/InfiniteScroll';
+import { RefreshButton } from '../ui/RefreshButton';
 import { createNoteSkeleton } from '../../helpers/createNoteSkeleton';
 
 export class TimelineUI {
@@ -18,6 +20,7 @@ export class TimelineUI {
   private timelineLoader: TimelineLoader;
   private loadMore: LoadMore;
   private userService: UserService;
+  private newNotesDetector: NewNotesDetector;
   private events: NostrEvent[] = [];
   private loading = false;
   private hasMore = true;
@@ -26,15 +29,18 @@ export class TimelineUI {
   private followingPubkeys: string[] = [];
   private noteHeaders: Map<string, NoteHeader> = new Map();
   private includeReplies = false;
+  private refreshButton: RefreshButton | null = null;
 
   constructor(userPubkey: string) {
     this.userPubkey = userPubkey;
     this.timelineLoader = TimelineLoader.getInstance();
     this.loadMore = LoadMore.getInstance();
     this.userService = UserService.getInstance();
+    this.newNotesDetector = NewNotesDetector.getInstance();
     this.element = this.createElement();
     this.infiniteScroll = new InfiniteScroll(() => this.handleLoadMore());
     this.setupInfiniteScroll();
+    this.setupRefreshButton();
     this.initializeTimeline();
   }
 
@@ -100,6 +106,26 @@ export class TimelineUI {
   }
 
   /**
+   * Setup refresh button for new notes
+   */
+  private setupRefreshButton(): void {
+    this.refreshButton = new RefreshButton({
+      newNotesCount: 0,
+      authorPubkeys: [],
+      onClick: () => this.handleRefreshClick()
+    });
+
+    // Replace the old refresh button with new one
+    const controls = this.element.querySelector('.timeline-controls');
+    if (controls) {
+      const oldRefreshBtn = controls.querySelector('.refresh-btn');
+      if (oldRefreshBtn) {
+        oldRefreshBtn.replaceWith(this.refreshButton.getElement());
+      }
+    }
+  }
+
+  /**
    * Handle load more request from infinite scroll component
    */
   private handleLoadMore(): void {
@@ -146,6 +172,9 @@ export class TimelineUI {
 
       console.log(`📱 TIMELINE UI: Loaded ${result.events.length} events from ${result.relaysUsed} relays`);
 
+      // Start polling for new notes after 10 seconds
+      this.startNewNotesPolling();
+
     } catch (error) {
       console.error('Failed to initialize timeline:', error);
       this.hideSkeletonLoaders();
@@ -153,6 +182,44 @@ export class TimelineUI {
     } finally {
       this.loading = false;
     }
+  }
+
+  /**
+   * Start polling for new notes
+   */
+  private startNewNotesPolling(): void {
+    if (this.events.length === 0 || this.followingPubkeys.length === 0) {
+      return;
+    }
+
+    // Get timestamp of newest note
+    const newestTimestamp = Math.max(...this.events.map(e => e.created_at));
+
+    // Start polling with callback
+    this.newNotesDetector.startPolling(
+      this.followingPubkeys,
+      newestTimestamp,
+      (info: NewNotesInfo) => this.handleNewNotesDetected(info),
+      10000 // Start after 10 seconds
+    );
+  }
+
+  /**
+   * Handle new notes detected
+   */
+  private handleNewNotesDetected(info: NewNotesInfo): void {
+    console.log(`🔔 NEW NOTES DETECTED: ${info.count} notes from ${info.authorPubkeys.length} authors`);
+
+    if (this.refreshButton) {
+      this.refreshButton.update(info.count, info.authorPubkeys);
+    }
+  }
+
+  /**
+   * Handle refresh button click
+   */
+  private async handleRefreshClick(): Promise<void> {
+    await this.handleRefresh();
   }
 
 
@@ -418,6 +485,9 @@ export class TimelineUI {
    * Handle refresh button click
    */
   private async handleRefresh(): Promise<void> {
+    // Stop polling before refresh
+    this.newNotesDetector.stopPolling();
+
     this.events = [];
     this.hasMore = true;
 
@@ -513,6 +583,9 @@ export class TimelineUI {
    * Cleanup resources
    */
   public destroy(): void {
+    // Stop polling
+    this.newNotesDetector.stopPolling();
+
     if (this.intersectionObserver) {
       this.intersectionObserver.disconnect();
     }
@@ -522,6 +595,11 @@ export class TimelineUI {
       noteHeader.destroy();
     });
     this.noteHeaders.clear();
+
+    // Cleanup refresh button
+    if (this.refreshButton) {
+      this.refreshButton.destroy();
+    }
 
     this.element.remove();
   }
