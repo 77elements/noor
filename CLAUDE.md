@@ -162,6 +162,44 @@ Claude repeatedly built "shortening" helpers (shortenPubkey, shortenNpub, etc.) 
 
 → **STOP. You're doing it wrong. Use usernames or fetch them.**
 
+## 🚧 IN PROGRESS: Single Note View (SNV) - Started 2025-10-02
+
+**Feature Specification:**
+
+**Route & Navigation:**
+- URL format: `/note/nevent1qqszhj9dhg7fp3kra5hvqljwud0s6rnl54ektfdg7a6lp2ez7pn9hsgqwtc2l`
+- Click handler: Click on note body (excluding links, images, videos, quoted notes, buttons) → navigate to SNV
+- Loads in `main.primary-content` (same container as Timeline View)
+
+**Display Requirements:**
+1. **Full Note Display**: Always show complete note content, NO "Show More" button/truncation
+2. **Note Header**: Identical to Timeline View (must be componentized - shared between TV and SNV)
+3. **Interaction Status Line (ISZ)**: Below note content, shows:
+   - Likes count
+   - Reposts count
+   - Quoted Reposts count
+   - Zaps count
+   - Analytics
+4. **Reply List**: Below ISZ, displays all replies to this note
+
+**Technical Questions to Answer:**
+1. Router system: Exists or build new?
+2. nevent decoding: Use `nip19.decode()` from nostr-tools (contains note ID + relay hints)
+3. ISZ data fetching: Which relay queries needed? (kind 7 for likes, kind 6 for reposts, kind 9735 for zaps)
+4. Reply depth: Direct replies only or full thread tree?
+5. Back navigation: Browser history or dedicated back button?
+
+**Implementation Steps:**
+- [ ] Step 1: Setup router system (if needed)
+- [ ] Step 2: Componentize note header (extract from Timeline, make reusable)
+- [ ] Step 3: Create SingleNoteView component (basic note display)
+- [ ] Step 4: Implement ISZ component (interaction stats)
+- [ ] Step 5: Implement reply fetching and rendering
+- [ ] Step 6: Add click handlers to timeline notes
+- [ ] Step 7: Test & polish
+
+**Current Status:** Planning phase
+
 ## ✅ FIXED: Repost Username Display (2025-10-01)
 
 **Problem:** Repost headers showed hex pubkeys instead of usernames (e.g. "e0921d610ee655396... reposted")
