@@ -201,7 +201,7 @@ export class TimelineUI {
       newestTimestamp,
       (info: NewNotesInfo) => this.handleNewNotesDetected(info),
       this.includeReplies, // Respect timeline view setting
-      10000 // Start after 10 seconds
+      60000 // Start after 60 seconds
     );
   }
 

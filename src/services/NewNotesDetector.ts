@@ -17,12 +17,13 @@ export class NewNotesDetector {
   private static instance: NewNotesDetector;
   private pool: SimplePool;
   private relayConfig: RelayConfig;
-  private pollingInterval: number = 10000; // 10 seconds (configurable)
+  private pollingInterval: number = 60000; // 60 seconds (configurable)
   private intervalId: number | null = null;
   private lastCheckedTimestamp: number = 0;
   private callback: NewNotesCallback | null = null;
   private followingPubkeys: string[] = [];
   private includeReplies: boolean = false;
+  private lastFoundCount: number = 0; // Track last found count to avoid duplicate logs
 
   private constructor() {
     this.pool = new SimplePool();
@@ -92,6 +93,7 @@ export class NewNotesDetector {
    */
   public resetTimestamp(newTimestamp: number): void {
     this.lastCheckedTimestamp = newTimestamp;
+    this.lastFoundCount = 0; // Reset count so next new notes will be logged
     console.log(`🔔 NEW NOTES DETECTOR: Timestamp reset to ${new Date(newTimestamp * 1000).toISOString()}`);
   }
 
@@ -121,15 +123,17 @@ export class NewNotesDetector {
         limit: 100 // Check up to 100 new notes
       };
 
-      console.log(`🔔 POLLING: Checking for notes since ${new Date(this.lastCheckedTimestamp * 1000).toISOString()}`);
-
       const events = await this.pool.list(readRelays, [filter]);
 
       // Filter replies if needed
       const filteredEvents = this.includeReplies ? events : this.filterReplies(events);
 
       if (filteredEvents.length > 0) {
-        console.log(`🔔 FOUND ${filteredEvents.length} NEW NOTES (${events.length} total, ${events.length - filteredEvents.length} replies filtered)!`);
+        // Only log when count changes (new notes appeared)
+        if (filteredEvents.length !== this.lastFoundCount) {
+          console.log(`🔔 POLLING: Found ${filteredEvents.length} new notes since ${new Date(this.lastCheckedTimestamp * 1000).toISOString()} (${events.length} total, ${events.length - filteredEvents.length} replies filtered)`);
+          this.lastFoundCount = filteredEvents.length;
+        }
 
         // Extract unique author pubkeys (newest first, max 4)
         const uniqueAuthors: string[] = [];
@@ -154,7 +158,8 @@ export class NewNotesDetector {
         // Notify callback
         this.callback(info);
       } else {
-        console.log('🔔 No new notes found');
+        // Reset count when no notes found
+        this.lastFoundCount = 0;
       }
 
     } catch (error) {
