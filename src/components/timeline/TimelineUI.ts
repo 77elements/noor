@@ -11,6 +11,7 @@ import { UserService } from '../../services/UserService';
 import { NoteHeader } from '../ui/NoteHeader';
 import { NoteUI } from '../ui/NoteUI';
 import { InfiniteScroll } from '../ui/InfiniteScroll';
+import { createNoteSkeleton } from '../../helpers/createNoteSkeleton';
 
 export class TimelineUI {
   private element: HTMLElement;
@@ -57,11 +58,6 @@ export class TimelineUI {
       </div>
 
       <div class="timeline-content">
-        <div class="timeline-loading initial-loading">
-          <div class="loading-spinner"></div>
-          <p>Loading timeline...</p>
-        </div>
-
         <div class="timeline-events"></div>
 
         <div class="timeline-load-trigger" style="height: 20px;"></div>
@@ -117,7 +113,9 @@ export class TimelineUI {
    */
   private async initializeTimeline(): Promise<void> {
     this.loading = true;
-    this.showInitialLoading(true);
+
+    // Show skeleton loaders immediately (better UX than spinner)
+    this.showSkeletonLoaders(5);
 
     try {
       // Get following list from UserService
@@ -126,6 +124,7 @@ export class TimelineUI {
       console.log(`📱 TIMELINE UI: Following ${this.followingPubkeys.length} users`);
 
       if (this.followingPubkeys.length <= 1) {
+        this.hideSkeletonLoaders();
         this.showError('No following list found. Please follow some users first.');
         return;
       }
@@ -138,7 +137,10 @@ export class TimelineUI {
       });
 
       this.events = result.events;
-      await this.renderEvents();
+
+      // Hide skeletons and render actual events
+      this.hideSkeletonLoaders();
+      this.renderEvents();
 
       this.hasMore = result.hasMore;
 
@@ -146,10 +148,10 @@ export class TimelineUI {
 
     } catch (error) {
       console.error('Failed to initialize timeline:', error);
+      this.hideSkeletonLoaders();
       this.showError('Failed to load timeline. Please check your connection.');
     } finally {
       this.loading = false;
-      this.showInitialLoading(false);
     }
   }
 
@@ -430,13 +432,6 @@ export class TimelineUI {
   /**
    * Show/hide loading states
    */
-  private showInitialLoading(show: boolean): void {
-    const loading = this.element.querySelector('.initial-loading');
-    if (loading) {
-      loading.style.display = show ? 'block' : 'none';
-    }
-  }
-
   private showMoreLoading(show: boolean): void {
     const loading = this.element.querySelector('.more-loading');
     if (loading) {
@@ -473,6 +468,38 @@ export class TimelineUI {
         </div>
       `;
     }
+  }
+
+  /**
+   * Show skeleton loaders for initial load
+   */
+  private showSkeletonLoaders(count: number = 5): void {
+    const eventsContainer = this.element.querySelector('.timeline-events');
+    if (!eventsContainer) return;
+
+    // Clear existing content
+    eventsContainer.innerHTML = '';
+
+    // Create skeleton loaders
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < count; i++) {
+      const skeleton = createNoteSkeleton();
+      fragment.appendChild(skeleton);
+    }
+
+    eventsContainer.appendChild(fragment);
+  }
+
+  /**
+   * Hide skeleton loaders
+   */
+  private hideSkeletonLoaders(): void {
+    const eventsContainer = this.element.querySelector('.timeline-events');
+    if (!eventsContainer) return;
+
+    // Remove all skeletons
+    const skeletons = eventsContainer.querySelectorAll('.note-skeleton');
+    skeletons.forEach(skeleton => skeleton.remove());
   }
 
   /**
