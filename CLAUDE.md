@@ -259,6 +259,5 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 **TODO:**
 - [ ] Implement ISZ component (Interaction Status Line: Likes, Reposts, Zaps, Analytics)
 - [ ] Implement reply fetching and rendering
-- [ ] Fix: Timeline scroll position not preserved when navigating TV → SNV → TV (should remember scroll position)
 - [ ] Test & polish
 

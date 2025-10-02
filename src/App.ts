@@ -88,6 +88,11 @@ export class App {
     const contentWrapper = document.querySelector('.primary-content .content-wrapper');
     if (!contentWrapper) return;
 
+    // Save scroll position if navigating away from timeline
+    if (this.timelineUI && contentWrapper.contains(this.timelineUI.getElement())) {
+      this.timelineUI.saveScrollPosition();
+    }
+
     // Clear existing content
     contentWrapper.innerHTML = '';
 
@@ -105,6 +110,8 @@ export class App {
 
         if (this.timelineUI) {
           contentWrapper.appendChild(this.timelineUI.getElement());
+          // Restore scroll position after mounting
+          this.timelineUI.restoreScrollPosition();
         }
         break;
       }

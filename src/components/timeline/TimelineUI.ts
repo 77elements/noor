@@ -30,6 +30,7 @@ export class TimelineUI {
   private noteHeaders: Map<string, NoteHeader> = new Map();
   private includeReplies = false;
   private refreshButton: RefreshButton | null = null;
+  private savedScrollPosition: number = 0;
 
   constructor(userPubkey: string) {
     this.userPubkey = userPubkey;
@@ -571,6 +572,29 @@ export class TimelineUI {
     // Remove all skeletons
     const skeletons = eventsContainer.querySelectorAll('.note-skeleton');
     skeletons.forEach(skeleton => skeleton.remove());
+  }
+
+  /**
+   * Save current scroll position
+   */
+  public saveScrollPosition(): void {
+    const content = this.element.querySelector('.timeline-content');
+    if (content) {
+      this.savedScrollPosition = content.scrollTop;
+    }
+  }
+
+  /**
+   * Restore saved scroll position
+   */
+  public restoreScrollPosition(): void {
+    const content = this.element.querySelector('.timeline-content');
+    if (content && this.savedScrollPosition > 0) {
+      // Use setTimeout to ensure DOM is fully rendered before scrolling
+      setTimeout(() => {
+        content.scrollTop = this.savedScrollPosition;
+      }, 0);
+    }
   }
 
   /**
