@@ -1,24 +1,33 @@
 /**
  * Debug Logger Component
  * Live debug logging with auto-scroll for debugging Timeline and Profile issues
+ * Split into 2 sections: Global (AppState, Router, UserService) + Page-specific (Timeline/SNV/Profile)
  */
 
 export type LogLevel = 'info' | 'debug' | 'warn' | 'error';
+export type LogCategory = 'global' | 'page';
 
 export interface LogEntry {
   timestamp: number;
   level: LogLevel;
   category: string;
+  logCategory: LogCategory; // 'global' or 'page'
   message: string;
   data?: any;
 }
 
+// Global categories: AppState, Router, UserService, Auth
+const GLOBAL_CATEGORIES = ['AppState', 'Router', 'UserService', 'Auth', 'USM'];
+
 export class DebugLogger {
   private static instance: DebugLogger;
   private element: HTMLElement;
-  private logs: LogEntry[] = [];
-  private maxLogs = 500; // Keep last 500 logs
-  private autoScroll = true;
+  private globalLogs: LogEntry[] = [];
+  private pageLogs: LogEntry[] = [];
+  private maxGlobalLogs = 5; // Keep only last 5 global logs
+  private maxPageLogs = 500; // Keep last 500 page logs
+  private globalAutoScroll = true;
+  private pageAutoScroll = true;
 
   private constructor() {
     this.element = this.createElement();
@@ -33,21 +42,35 @@ export class DebugLogger {
   }
 
   /**
-   * Create debug logger UI
+   * Create debug logger UI with 2 sections
    */
   private createElement(): HTMLElement {
     const container = document.createElement('div');
     container.className = 'debug-logger';
     container.innerHTML = `
-      <div class="debug-logger__content">
-        <div class="debug-logger__logs"></div>
+      <div class="debug-logger__global debug-section">
+        <div class="debug-logger__global-header heading--sidebar-subheading">Global</div>
+        <div class="debug-logger__global-content">
+          <div class="debug-logger__global-logs"></div>
+        </div>
+      </div>
+      <div class="debug-logger__page debug-section">
+        <div class="debug-logger__page-header heading--sidebar-subheading">Local</div>
+        <div class="debug-logger__page-content">
+          <div class="debug-logger__page-logs"></div>
+        </div>
       </div>
     `;
 
-    // Setup scroll detection
-    const content = container.querySelector('.debug-logger__content');
-    if (content) {
-      content.addEventListener('scroll', () => this.handleScroll());
+    // Setup scroll detection for both sections
+    const globalContent = container.querySelector('.debug-logger__global-content');
+    if (globalContent) {
+      globalContent.addEventListener('scroll', () => this.handleGlobalScroll());
+    }
+
+    const pageContent = container.querySelector('.debug-logger__page-content');
+    if (pageContent) {
+      pageContent.addEventListener('scroll', () => this.handlePageScroll());
     }
 
     return container;
@@ -94,28 +117,42 @@ export class DebugLogger {
   }
 
   /**
-   * Add log entry
+   * Add log entry - automatically categorizes as global or page
    */
   public log(level: LogLevel, category: string, message: string, data?: any): void {
+    // Determine if this is a global or page log
+    const logCategory: LogCategory = GLOBAL_CATEGORIES.includes(category) ? 'global' : 'page';
+
     const entry: LogEntry = {
       timestamp: Date.now(),
       level,
       category,
+      logCategory,
       message,
       data
     };
 
-    this.logs.push(entry);
-
-    // Keep only last N logs
-    if (this.logs.length > this.maxLogs) {
-      this.logs = this.logs.slice(-this.maxLogs);
-    }
-
-    this.renderLogs();
-
-    if (this.autoScroll) {
-      this.scrollToBottom();
+    // Add to appropriate log array
+    if (logCategory === 'global') {
+      this.globalLogs.push(entry);
+      // Keep only last N global logs
+      if (this.globalLogs.length > this.maxGlobalLogs) {
+        this.globalLogs = this.globalLogs.slice(-this.maxGlobalLogs);
+      }
+      this.renderGlobalLogs();
+      if (this.globalAutoScroll) {
+        this.scrollGlobalToBottom();
+      }
+    } else {
+      this.pageLogs.push(entry);
+      // Keep only last N page logs
+      if (this.pageLogs.length > this.maxPageLogs) {
+        this.pageLogs = this.pageLogs.slice(-this.maxPageLogs);
+      }
+      this.renderPageLogs();
+      if (this.pageAutoScroll) {
+        this.scrollPageToBottom();
+      }
     }
   }
 
@@ -139,14 +176,24 @@ export class DebugLogger {
   }
 
   /**
-   * Render logs to UI
+   * Render global logs to UI
    */
-  private renderLogs(): void {
-    const logsContainer = this.element.querySelector('.debug-logger__logs');
+  private renderGlobalLogs(): void {
+    const logsContainer = this.element.querySelector('.debug-logger__global-logs');
+    if (!logsContainer) return;
+
+    logsContainer.innerHTML = this.globalLogs.map(entry => this.renderLogEntry(entry)).join('');
+  }
+
+  /**
+   * Render page logs to UI
+   */
+  private renderPageLogs(): void {
+    const logsContainer = this.element.querySelector('.debug-logger__page-logs');
     if (!logsContainer) return;
 
     // Only render last 50 visible logs for performance
-    const visibleLogs = this.logs.slice(-50);
+    const visibleLogs = this.pageLogs.slice(-50);
 
     logsContainer.innerHTML = visibleLogs.map(entry => this.renderLogEntry(entry)).join('');
   }
@@ -180,50 +227,56 @@ export class DebugLogger {
   }
 
   /**
-   * Scroll to bottom
+   * Scroll global section to bottom
    */
-  private scrollToBottom(): void {
-    const content = this.element.querySelector('.debug-logger__content');
+  private scrollGlobalToBottom(): void {
+    const content = this.element.querySelector('.debug-logger__global-content');
     if (content) {
       content.scrollTop = content.scrollHeight;
     }
   }
 
   /**
-   * Handle scroll events to detect manual scrolling
+   * Scroll page section to bottom
    */
-  private handleScroll(): void {
-    const content = this.element.querySelector('.debug-logger__content');
+  private scrollPageToBottom(): void {
+    const content = this.element.querySelector('.debug-logger__page-content');
+    if (content) {
+      content.scrollTop = content.scrollHeight;
+    }
+  }
+
+  /**
+   * Handle global section scroll events
+   */
+  private handleGlobalScroll(): void {
+    const content = this.element.querySelector('.debug-logger__global-content');
     if (!content) return;
 
     const isAtBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 10;
 
-    // Disable auto-scroll if user scrolled up manually
-    if (!isAtBottom && this.autoScroll) {
-      this.autoScroll = false;
-      this.updateAutoScrollButton();
+    // Toggle auto-scroll based on scroll position
+    if (isAtBottom && !this.globalAutoScroll) {
+      this.globalAutoScroll = true; // Re-enable if user scrolled back to bottom
+    } else if (!isAtBottom && this.globalAutoScroll) {
+      this.globalAutoScroll = false; // Disable if user scrolled up
     }
   }
 
   /**
-   * Toggle auto-scroll
+   * Handle page section scroll events
    */
-  private toggleAutoScroll(): void {
-    this.autoScroll = !this.autoScroll;
-    this.updateAutoScrollButton();
+  private handlePageScroll(): void {
+    const content = this.element.querySelector('.debug-logger__page-content');
+    if (!content) return;
 
-    if (this.autoScroll) {
-      this.scrollToBottom();
-    }
-  }
+    const isAtBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 10;
 
-  /**
-   * Update auto-scroll button text
-   */
-  private updateAutoScrollButton(): void {
-    const btn = this.element.querySelector('.debug-logger__auto-scroll');
-    if (btn) {
-      btn.textContent = `Auto-scroll: ${this.autoScroll ? 'ON' : 'OFF'}`;
+    // Toggle auto-scroll based on scroll position
+    if (isAtBottom && !this.pageAutoScroll) {
+      this.pageAutoScroll = true; // Re-enable if user scrolled back to bottom
+    } else if (!isAtBottom && this.pageAutoScroll) {
+      this.pageAutoScroll = false; // Disable if user scrolled up
     }
   }
 
@@ -231,8 +284,10 @@ export class DebugLogger {
    * Clear all logs
    */
   public clear(): void {
-    this.logs = [];
-    this.renderLogs();
+    this.globalLogs = [];
+    this.pageLogs = [];
+    this.renderGlobalLogs();
+    this.renderPageLogs();
   }
 
   /**

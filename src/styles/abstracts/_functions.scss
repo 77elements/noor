@@ -38,7 +38,7 @@
 
 // Get spacing value by multiplier
 @function spacing($multiplier) {
-  @return $spacing-4 * $multiplier;
+  @return $gap * $multiplier;
 }
 
 // ========================================

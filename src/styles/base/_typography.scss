@@ -9,34 +9,34 @@
 // Heading styles
 h1 {
   @include heading-xl;
-  margin-bottom: $spacing-6;
+  margin-bottom: $gap * 1.5;
 }
 
 h2 {
   @include heading-lg;
-  margin-bottom: $spacing-5;
+  margin-bottom: $gap;
 }
 
 h3 {
   @include heading-md;
-  margin-bottom: $spacing-4;
+  margin-bottom: $gap;
 }
 
 h4 {
   @include heading-sm;
-  margin-bottom: $spacing-3;
+  margin-bottom: $gap;
 }
 
 h5,
 h6 {
   @include heading-base;
   font-size: $font-size-lg;
-  margin-bottom: $spacing-3;
+  margin-bottom: $gap;
 }
 
 // Paragraph styles
 p {
-  margin-bottom: $spacing-4;
+  margin-bottom: $gap;
   color: var(--color-text-primary);
   line-height: $line-height-relaxed;
 
@@ -75,8 +75,8 @@ a {
 // List styles
 ul,
 ol {
-  margin-bottom: $spacing-4;
-  padding-left: $spacing-6;
+  margin-bottom: $gap;
+  padding-left: $gap * 1.5;
 
   &:last-child {
     margin-bottom: 0;
@@ -92,7 +92,7 @@ ol {
 }
 
 li {
-  margin-bottom: $spacing-1;
+  margin-bottom: calc($gap / 4);
   line-height: $line-height-relaxed;
 
   &:last-child {
@@ -102,19 +102,19 @@ li {
 
 // Definition lists
 dl {
-  margin-bottom: $spacing-4;
+  margin-bottom: $gap;
 }
 
 dt {
   font-weight: $font-weight-semibold;
   color: var(--color-text-primary);
-  margin-bottom: $spacing-1;
+  margin-bottom: calc($gap / 4);
 }
 
 dd {
-  margin-bottom: $spacing-3;
+  margin-bottom: $gap;
   color: var(--color-text-secondary);
-  margin-left: $spacing-4;
+  margin-left: $gap;
 
   &:last-child {
     margin-bottom: 0;
@@ -141,7 +141,7 @@ small {
 mark {
   background-color: rgba($color-warning, 0.2);
   color: var(--color-text-primary);
-  padding: 0 $spacing-1;
+  padding: 0 calc($gap / 4);
   border-radius: $radius-sm;
 }
 
@@ -151,7 +151,7 @@ code {
   font-size: 0.875em;
   background-color: var(--color-surface);
   color: var(--color-text-primary);
-  padding: $spacing-1 $spacing-2;
+  padding: calc($gap / 4) calc($gap / 2);
   border-radius: $radius-sm;
   border: 1px solid var(--color-border);
 }
@@ -162,11 +162,11 @@ pre {
   line-height: $line-height-relaxed;
   background-color: var(--color-surface);
   color: var(--color-text-primary);
-  padding: $spacing-4;
+  padding: $gap;
   border-radius: $radius-lg;
   border: 1px solid var(--color-border);
   overflow-x: auto;
-  margin-bottom: $spacing-4;
+  margin-bottom: $gap;
 
   code {
     background: none;
@@ -182,8 +182,8 @@ blockquote {
   line-height: $line-height-relaxed;
   color: var(--color-text-secondary);
   border-left: 4px solid $color-4;
-  padding-left: $spacing-4;
-  margin: $spacing-6 0;
+  padding-left: $gap;
+  margin: $gap * 1.5 0;
   font-style: italic;
 
   p:last-child {
@@ -195,7 +195,7 @@ blockquote {
     font-size: $font-size-sm;
     font-style: normal;
     color: var(--color-text-tertiary);
-    margin-top: $spacing-2;
+    margin-top: calc($gap / 2);
 
     &::before {
       content: '— ';
@@ -208,7 +208,7 @@ hr {
   border: none;
   height: 1px;
   background-color: var(--color-border);
-  margin: $spacing-8 0;
+  margin: $gap * 2 0;
 }
 
 // Text utility classes
@@ -239,3 +239,8 @@ hr {
 .text-truncate { @include text-truncate; }
 .text-truncate-2 { @include text-truncate-lines(2); }
 .text-truncate-3 { @include text-truncate-lines(3); }
+
+// Heading variants
+.heading--sidebar-subheading {
+  margin-bottom: $gap;
+}

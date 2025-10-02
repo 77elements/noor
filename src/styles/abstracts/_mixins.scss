@@ -119,14 +119,14 @@
   place-items: center;
 }
 
-@mixin grid-columns($columns, $gap: $spacing-4) {
+@mixin grid-columns($columns, $gap: $gap) {
   display: grid;
   grid-template-columns: repeat($columns, 1fr);
   gap: $gap;
 }
 
 // Container with max-width
-@mixin container($max-width: $main-content-max-width, $padding: $spacing-4) {
+@mixin container($max-width: $main-content-max-width, $padding: $gap) {
   max-width: $max-width;
   margin: 0 auto;
   padding: 0 $padding;
@@ -231,21 +231,21 @@
 
 // Button sizes
 @mixin button-sm {
-  padding: $spacing-2 $spacing-3;
+  padding: calc($gap / 2) $gap;
   font-size: $font-size-sm;
-  gap: $spacing-1\.5;
+  gap: calc($gap / 2);
 }
 
 @mixin button-md {
-  padding: $spacing-2\.5 $spacing-4;
+  padding: calc($gap / 2) $gap;
   font-size: $font-size-base;
-  gap: $spacing-2;
+  gap: calc($gap / 2);
 }
 
 @mixin button-lg {
-  padding: $spacing-3 $spacing-6;
+  padding: $gap $gap * 1.5;
   font-size: $font-size-lg;
-  gap: $spacing-2\.5;
+  gap: calc($gap / 2);
 }
 
 // Button variants
@@ -286,7 +286,7 @@
 // Base input styles
 @mixin input-base {
   width: 100%;
-  padding: $spacing-2\.5 $spacing-3\.5;
+  padding: calc($gap / 2) $gap;
   font-size: $font-size-base;
   line-height: $line-height-normal;
   background-color: var(--color-surface);

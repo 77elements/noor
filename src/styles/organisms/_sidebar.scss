@@ -8,16 +8,16 @@
 
 .sidebar {
   @include card-base;
-  padding: $spacing-4;
+  padding: $gap;
   overflow-y: auto;
   background-color: var(--color-surface);
 
   @include desktop-down {
-    padding: $spacing-3;
+    padding: $gap;
   }
 
   @include tablet-down {
-    padding: $spacing-2;
+    padding: calc($gap / 2);
   }
 }
 
@@ -28,7 +28,7 @@
 
 .sidebar h2 {
   font-size: $font-size-lg;
-  margin-bottom: $spacing-4;
+  margin-bottom: $gap;
   color: $color-5;
 
   @include desktop-down {
@@ -43,7 +43,7 @@
 .sidebar p {
   font-size: $font-size-sm;
   color: var(--color-text-secondary);
-  margin-bottom: $spacing-4;
+  margin-bottom: $gap;
 
   @include desktop-down {
     display: none; // Hide text on smaller screens
@@ -57,18 +57,18 @@
 .sidebar ul {
   list-style: none;
   padding: 0;
-  margin: 0 0 $spacing-6 0;
+  margin: 0 0 $gap * 1.5 0;
 
   @include tablet-down {
     display: flex;
-    gap: $spacing-2;
+    gap: calc($gap / 2);
     overflow-x: auto;
   }
 }
 
 .sidebar li {
-  padding: $spacing-2;
-  margin-bottom: $spacing-1;
+  padding: calc($gap / 2);
+  margin-bottom: calc($gap / 4);
   border-radius: $radius-md;
   cursor: pointer;
   transition: $transition-colors;
@@ -87,6 +87,6 @@
 
 .sidebar-footer {
   margin-top: auto;
-  padding-top: $spacing-4;
+  padding-top: $gap;
   border-top: 1px solid var(--color-border);
 }

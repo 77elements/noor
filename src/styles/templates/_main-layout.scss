@@ -11,8 +11,8 @@
   display: grid;
   grid-template-columns: $sidebar-width 1fr 1fr;
   grid-template-areas: "sidebar primary secondary";
-  gap: $spacing-4;
-  padding: $spacing-4;
+  gap: $gap;
+  padding: $gap;
   height: 100vh;
   box-sizing: border-box;
   overflow: hidden;
@@ -20,8 +20,8 @@
   // Responsive breakpoints
   @include desktop-down {
     grid-template-columns: 100px 1fr 1fr;
-    gap: $spacing-3;
-    padding: $spacing-3;
+    gap: $gap;
+    padding: $gap;
   }
 
   @include tablet-down {
@@ -31,13 +31,13 @@
       "sidebar"
       "primary"
       "secondary";
-    gap: $spacing-2;
-    padding: $spacing-2;
+    gap: calc($gap / 2);
+    padding: calc($gap / 2);
   }
 
   @include mobile-down {
-    padding: $spacing-1;
-    gap: $spacing-1;
+    padding: calc($gap / 4);
+    gap: calc($gap / 4);
   }
 }
 
@@ -100,7 +100,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding: $spacing-3 0;
+    padding: $gap 0;
     border-bottom: 1px solid $color-2;
     flex-shrink: 0;
 
