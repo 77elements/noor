@@ -123,6 +123,12 @@ export class SingleNoteView {
    * Render the loaded note with NoteHeader
    */
   private renderNote(event: NostrEvent): void {
+    // Check if this is a repost (kind 6)
+    if (event.kind === 6) {
+      this.renderRepost(event);
+      return;
+    }
+
     // Clear loading state
     this.container.innerHTML = '';
 
@@ -164,9 +170,94 @@ export class SingleNoteView {
   }
 
   /**
+   * Render a repost (kind 6) - show original content, not the repost wrapper
+   */
+  private renderRepost(repostEvent: NostrEvent): void {
+    // Extract original event from repost
+    let originalEvent: NostrEvent | null = null;
+    let originalAuthorPubkey: string | null = null;
+
+    try {
+      if (repostEvent.content && repostEvent.content.trim()) {
+        originalEvent = JSON.parse(repostEvent.content);
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not parse repost content as JSON');
+    }
+
+    // Get original author from tags
+    const pTags = repostEvent.tags.filter(tag => tag[0] === 'p');
+    if (pTags.length > 0) {
+      originalAuthorPubkey = pTags[0][1];
+    }
+
+    // If we couldn't parse the original event, show error
+    if (!originalEvent || !originalEvent.content) {
+      this.showError('Could not load reposted content');
+      return;
+    }
+
+    // Clear loading state
+    this.container.innerHTML = '';
+
+    // Create note structure
+    const noteElement = document.createElement('div');
+    noteElement.className = 'snv-note';
+    noteElement.dataset.eventId = originalEvent.id || repostEvent.id;
+
+    // Create NoteHeader for ORIGINAL author (not reposter)
+    const authorPubkey = originalAuthorPubkey || originalEvent.pubkey;
+    this.noteHeader = new NoteHeader({
+      pubkey: authorPubkey,
+      timestamp: originalEvent.created_at,
+      size: 'large',
+      showVerification: true,
+      showTimestamp: true,
+    });
+
+    // Process content with original event's tags
+    const processedContent = this.processContentWithTags(
+      originalEvent.content,
+      originalEvent.tags || []
+    );
+
+    // Build note content
+    noteElement.innerHTML = `
+      <div class="snv-note__header-container"></div>
+      <div class="snv-note__content">${processedContent.html}</div>
+      ${renderMediaContent(processedContent.media)}
+      ${renderQuotedReferencesPlaceholder(processedContent.quotedReferences)}
+      <div class="snv-note__footer">
+        <button class="snv-back-btn" onclick="history.back()">← Back to Timeline</button>
+      </div>
+    `;
+
+    // Mount NoteHeader
+    const headerContainer = noteElement.querySelector('.snv-note__header-container');
+    if (headerContainer && this.noteHeader) {
+      headerContainer.appendChild(this.noteHeader.getElement());
+    }
+
+    this.container.appendChild(noteElement);
+  }
+
+  /**
    * Process content with individual helpers (same as NoteUI.processContent)
    */
   private processContent(text: string): {
+    text: string;
+    html: string;
+    media: MediaContent[];
+    hashtags: string[];
+    quotedReferences: QuotedReference[];
+  } {
+    return this.processContentWithTags(text, []);
+  }
+
+  /**
+   * Process content with tags (for mention profile loading)
+   */
+  private processContentWithTags(text: string, tags: string[][]): {
     text: string;
     html: string;
     media: MediaContent[];
@@ -183,6 +274,18 @@ export class SingleNoteView {
       id: ref.id,
       fullMatch: ref.fullMatch
     }));
+
+    // NON-BLOCKING: Trigger profile fetch for mentions in background
+    const mentionTags = tags.filter(tag => tag[0] === 'p' && tag[3] === 'mention');
+    if (mentionTags.length > 0) {
+      const mentionPubkeys = mentionTags.map(tag => tag[1]);
+      // Fire and forget - profiles will update cache when they arrive
+      this.userProfileService.getUserProfiles(mentionPubkeys).then(profiles => {
+        profiles.forEach((profile, pubkey) => {
+          this.profileCache.set(pubkey, profile);
+        });
+      }).catch(err => console.warn('Failed to load mention profiles:', err));
+    }
 
     // Profile resolver for mentions
     const profileResolver = (hexPubkey: string) => {
