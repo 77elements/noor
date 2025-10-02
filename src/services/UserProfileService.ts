@@ -304,6 +304,18 @@ export class UserProfileService {
         const data = JSON.parse(stored);
         if (data.profiles) {
           this.profileCache = new Map(Object.entries(data.profiles));
+
+          // Populate granular caches from loaded profiles
+          this.profileCache.forEach((profile, pubkey) => {
+            const displayName = extractDisplayName(profile);
+            if (displayName) {
+              this.usernameCache.set(pubkey, displayName);
+            }
+
+            if (profile.picture) {
+              this.pictureCache.set(pubkey, profile.picture);
+            }
+          });
         }
       }
     } catch (error) {
