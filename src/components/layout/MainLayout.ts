@@ -61,7 +61,9 @@ export class MainLayout {
             <li>Settings</li>
           </ul>
           <div class="sidebar-footer">
-            <p>User Info</p>
+            <div class="auth-control-container">
+              <!-- Login/Logout will be mounted here -->
+            </div>
             <div class="cache-control-container">
               <!-- Cache control will be mounted here -->
             </div>
@@ -182,14 +184,14 @@ export class MainLayout {
   }
 
   /**
-   * Initialize primary content with auth component and secondary content with debug logger
+   * Initialize content areas
    */
   private initializeContent(): void {
-    // Create and mount auth component in primary content
+    // Mount auth component in secondary-user (top right - Login/Logout)
     this.authComponent = new AuthComponent(this);
-    const primaryContent = this.element.querySelector('.primary-content .content-wrapper');
-    if (primaryContent) {
-      primaryContent.appendChild(this.authComponent.getElement());
+    const secondaryUser = this.element.querySelector('.secondary-user');
+    if (secondaryUser) {
+      secondaryUser.appendChild(this.authComponent.getElement());
     }
 
     // Mount debug logger in secondary content body

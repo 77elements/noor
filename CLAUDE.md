@@ -111,36 +111,7 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - **Dark Mode**: System preference with manual override
 - **CSS Grid**: Modern layout with progressive enhancement
 
-## Nostr projects to draw inspiration from:
-
-- Jumble.social | Web Client | Github: https://github.com/CodyTseng/jumble
-- Gossip | Desktop Client | Github: https://github.com/mikedilger/gossip
-
-Whenever you (the AI agent) don't know how to implement something, it's worth looking at how they did it. When you browse the repositories, browse like a human would do: starting at the front page, clicking through. Otherwise, if you doo it your way, you'll run into multiple 404's.
-
-## Chaos Mode
-
-This refers to you. That you're in absolute chaos mode. This usually means:
-
-- That you're only producing crap
-- That you've forgotten too much (context, where we were, modularity or coding principles described in the context file CLAUDE.md)
-- That you need 10 or more rounds to fix a simple bug
-- That while debugging, you break other features because you're too narrow-minded and autistic in your approach.
-- That you're guessing again instead of researching online using current examples, such as Jumble's GitHub repository, to see how it's done. 
-
-This mode requires an immediate stop of development, a reset of the entire branch to the last state of a working commit (only the user does this! Never you), a complete restart of the feature, and a re-reading of the context file CLAUDE.md on your part.
-
-Then we'll take 1-2 steps back from the whole thing and consider more architectural measures before tackling the feature again.
-
----
-
-# ═══════════════════════════════════════════════════════════════
-# 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY
-# ═══════════════════════════════════════════════════════════════
-
-## 🚨 CRITICAL: USER IDENTITY DISPLAY RULES (2025-10-01)
-
-**ABSOLUTE RULE - NO EXCEPTIONS:**
+## ABSOLUTE RULE - NO EXCEPTIONS
 
 1. **HEX pubkeys**: NEVER visible in Frontend UI - internal use only
 2. **NPUB**: ONLY in URLs (e.g. `/profile/{npub}`) - NEVER displayed to user
@@ -162,119 +133,59 @@ Claude repeatedly built "shortening" helpers (shortenPubkey, shortenNpub, etc.) 
 
 → **STOP. You're doing it wrong. Use usernames or fetch them.**
 
-## 🚧 IN PROGRESS: Single Note View (SNV) - Started 2025-10-02
+## Nostr projects to draw inspiration from:
 
-**Feature Specification:**
+- Jumble.social | Web Client | Github: https://github.com/CodyTseng/jumble
+- Gossip | Desktop Client | Github: https://github.com/mikedilger/gossip
 
-**Route & Navigation:**
-- URL format: `/note/nevent1qqszhj9dhg7fp3kra5hvqljwud0s6rnl54ektfdg7a6lp2ez7pn9hsgqwtc2l`
-- Click handler: Click on note body (excluding links, images, videos, quoted notes, buttons) → navigate to SNV
-- Loads in `main.primary-content` (same container as Timeline View)
+Whenever you (the AI agent) don't know how to implement something, it's worth looking at how they did it. When you browse the repositories, browse like a human would do: starting at the front page, clicking through. Otherwise, if you doo it your way, you'll run into multiple 404's.
 
-**Display Requirements:**
-1. **Full Note Display**: Always show complete note content, NO "Show More" button/truncation
-2. **Note Header**: Identical to Timeline View (must be componentized - shared between TV and SNV)
-3. **Interaction Status Line (ISZ)**: Below note content, shows:
-   - Likes count
-   - Reposts count
-   - Quoted Reposts count
-   - Zaps count
-   - Analytics
-4. **Reply List**: Below ISZ, displays all replies to this note
+## Chaos Mode
 
-**Technical Questions to Answer:**
-1. Router system: Exists or build new?
-2. nevent decoding: Use `nip19.decode()` from nostr-tools (contains note ID + relay hints)
-3. ISZ data fetching: Which relay queries needed? (kind 7 for likes, kind 6 for reposts, kind 9735 for zaps)
-4. Reply depth: Direct replies only or full thread tree?
-5. Back navigation: Browser history or dedicated back button?
+This refers to you. That you're in absolute chaos mode. This usually means:
 
-**Implementation Steps:**
-- [ ] Step 1: Setup router system (if needed)
-- [ ] Step 2: Componentize note header (extract from Timeline, make reusable)
-- [ ] Step 3: Create SingleNoteView component (basic note display)
-- [ ] Step 4: Implement ISZ component (interaction stats)
-- [ ] Step 5: Implement reply fetching and rendering
-- [ ] Step 6: Add click handlers to timeline notes
-- [ ] Step 7: Test & polish
+- That you're only producing crap
+- That you've forgotten too much (context, where we were, modularity or coding principles described in the context file CLAUDE.md)
+- That you need 10 or more rounds to fix a simple bug
+- That while debugging, you break other features because you're too narrow-minded and autistic in your approach.
+- That you're guessing again instead of researching online using current examples, such as Jumble's GitHub repository, to see how it's done. 
 
-**Current Status:** Planning phase
+This mode requires an immediate stop of development, a reset of the entire branch to the last state of a working commit (only the user does this! Never you), a complete restart of the feature, and a re-reading of the context file CLAUDE.md on your part.
 
-## ✅ FIXED: Repost Username Display (2025-10-01)
+Then we'll take 1-2 steps back from the whole thing and consider more architectural measures before tackling the feature again.
 
-**Problem:** Repost headers showed hex pubkeys instead of usernames (e.g. "e0921d610ee655396... reposted")
+## 📋 TODO: Future Improvements
 
-**Root Cause:**
-- `npubToUsername()` called `UserProfileService.getUsername(hexPubkey)`
-- When no profile in cache, returned `generateFallbackUsername(hexPubkey)` = hex pubkey itself
-- Check `!cachedUsername.includes('...')` was wrong - hex has no '...', so it passed through
+### Event Bus System (Priority: High)
+Currently using `window.location.reload()` after login to reinitialize Timeline with user data. This is a hack.
+
+**Problem:**
+- AuthComponent authenticates user → saves to localStorage → calls `window.location.reload()`
+- Full page reload is inefficient and loses app state
 
 **Solution:**
-1. Fixed fallback detection: `cachedUsername !== hexPubkey` (not contains '...')
-2. Refactored `npubToUsername()` to support dual modes via function overloading:
-   - Simple mode: `npubToUsername(npub)` → returns username string
-   - Legacy HTML mode: `npubToUsername(html, profileResolver)` → processes HTML text
-3. Added async profile fetching in simple mode (fire and forget)
-4. Subscribe to profile updates in `createRepostElement()` to refresh DOM when profile loads
+- Build Event Bus for app-wide communication
+- Events: `user:login`, `user:logout`, `view:change`, etc.
+- Components subscribe to events and react accordingly
+- Timeline subscribes to `user:login` → creates itself with new pubkey
+- No page reload needed
 
-**Progressive Enhancement Flow:**
-1. Display npub as initial fallback (not hex!)
-2. Trigger `getUserProfile()` async
-3. Subscribe to profile updates
-4. Update DOM when profile arrives: npub → username
+**Files to create:**
+- `src/services/EventBus.ts` - Singleton event bus with pub/sub pattern
+- Update AuthComponent to emit `user:login` event instead of reload
+- Update App.ts to listen for `user:login` and recreate Timeline
 
-**Files Changed:**
-- src/helpers/npubToUsername.ts - function overloading + async fetch trigger
-- src/components/ui/NoteUI.ts - profile subscription for repost header
-- src/helpers/shortenPubkey.ts - DELETED
-- src/helpers/generateFallbackUsername.ts - removed shortening
-- src/helpers/shortenNpub.ts - removed shortening
+---
 
-**Result:** Reposts now show "@username reposted" with progressive enhancement (npub → username).
+# ═══════════════════════════════════════════════════════════════
+# 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY
+# ═══════════════════════════════════════════════════════════════
 
-## 🔄 NEXT SESSION: Continue Single Note View Implementation (2025-10-03)
+## 🚧 IN PROGRESS: Single Note View (SNV) - Started 2025-10-02
 
-**What we built today (2025-10-02):**
-- ✅ Router: Minimal vanilla JS router with pattern matching (`/`, `/note/:noteId`, `/profile/:npub`)
-- ✅ AppState: Central state manager with subscription pattern (user, timeline, view)
-- ✅ SPA Navigation: Click on note → SNV placeholder, Home link → Timeline
-- ✅ View switching works, but SNV shows only empty placeholder
+**TODO:**
+- [ ] Implement ISZ component (Interaction Status Line: Likes, Reposts, Zaps, Analytics)
+- [ ] Implement reply fetching and rendering
+- [ ] Fix: Timeline scroll position not preserved when navigating TV → SNV → TV (should remember scroll position)
+- [ ] Test & polish
 
-**Bundle size:** 92.56 KB main / 26.24 KB gzipped (+1.19 KB from start)
-
-**Tomorrow's plan:**
-
-1. **Split System Log (Priority 1)**
-   - Split DebugLogger into 2 sections: Global (top, 4-5 lines) + Page (bottom, rest)
-   - Global section: AppState, Router, UserService, Auth
-   - Page section: Timeline/SNV/Profile specific logs
-   - Both sections: auto-scroll, independently scrollable
-   - Add divider line between sections
-   - Update all console.log calls to use correct categories
-
-2. **Continue SNV Implementation**
-   - Componentize note header (shared between Timeline and SNV)
-   - Create SingleNoteView component (fetch note by nevent ID)
-   - Implement full note display (no "Show More" truncation)
-   - Add Interaction Status Line (ISZ): Likes, Reposts, Zaps, Analytics
-   - Add Reply list below ISZ
-
-3. **State Migration (if time)**
-   - Migrate Timeline state to AppState
-   - Migrate User state to AppState
-   - Remove redundant state from components
-
-**Files modified today:**
-- src/services/Router.ts (NEW)
-- src/services/AppState.ts (NEW)
-- src/App.ts (route setup, view switching)
-- src/components/layout/MainLayout.ts (home link + router integration)
-- src/components/ui/NoteUI.ts (click handlers for navigation)
-
-**Known issues to address:**
-- DebugLogger partially modified but changes reverted - needs full rewrite for 2-section layout
-- SNV only shows placeholder - need actual component
-- No state persistence between route changes yet
-- Timeline state not yet in AppState
-
-**Current Status:** Router + AppState infrastructure complete, ready to build actual SNV component.

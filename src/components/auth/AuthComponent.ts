@@ -4,8 +4,8 @@
  */
 
 import { AuthService } from '../../services/AuthService';
-import { TimelineUI } from '../timeline/TimelineUI';
 import { DebugLogger } from '../debug/DebugLogger';
+import { Router } from '../../services/Router';
 
 // Forward declaration to avoid circular dependency
 interface MainLayoutInterface {
@@ -17,13 +17,14 @@ export class AuthComponent {
   private element: HTMLElement;
   private authService: AuthService;
   private debugLogger: DebugLogger;
+  private router: Router;
   private mainLayout: MainLayoutInterface | null = null;
   private currentUser: { npub: string; pubkey: string } | null = null;
-  private timelineComponent: TimelineUI | null = null;
 
   constructor(mainLayout?: MainLayoutInterface) {
-    this.authService = new AuthService();
+    this.authService = AuthService.getInstance();
     this.debugLogger = DebugLogger.getInstance();
+    this.router = Router.getInstance();
     this.mainLayout = mainLayout || null;
 
     // Check session BEFORE creating UI
@@ -44,44 +45,19 @@ export class AuthComponent {
     container.className = 'auth-component';
 
     if (this.currentUser) {
-      // User is authenticated - show timeline
-      container.innerHTML = `
-        <div class="authenticated-content">
-          <div class="timeline-container">
-            <!-- Timeline will be mounted here -->
-          </div>
-        </div>
-      `;
+      // User is authenticated - show nothing (UserStatus shows username + logout)
+      container.innerHTML = '';
     } else {
-      // User not authenticated - show login options
+      // User not authenticated - show login button (same structure as UserStatus)
       const isExtensionAvailable = this.authService.isExtensionAvailable();
 
       container.innerHTML = `
-        <div class="auth-container">
-          <h2>Welcome to Noornote</h2>
-          <p>Please authenticate to continue</p>
-
-          <div class="auth-status unauthenticated">
-            <h3>Authentication Required</h3>
-            ${isExtensionAvailable
-              ? `
-                <p>Extension detected: ${this.authService.getExtensionName()}</p>
-                <button class="login-btn" type="button">Connect with Extension</button>
-              `
-              : `
-                <div class="no-extension">
-                  <p class="error">No Nostr extension found</p>
-                  <p>Please install a Nostr browser extension:</p>
-                  <ul class="extension-list">
-                    <li><a href="https://getalby.com/" target="_blank">Alby (Recommended)</a></li>
-                    <li><a href="https://github.com/fiatjaf/nos2x" target="_blank">nos2x</a></li>
-                    <li><a href="https://flamingo.me/" target="_blank">Flamingo</a></li>
-                  </ul>
-                  <button class="retry-btn" type="button">Retry Detection</button>
-                </div>
-              `
-            }
+        <div class="user-status">
+          <div class="user-info">
+            <span class="user-indicator">○</span>
+            <span class="user-display">Not logged in</span>
           </div>
+          <button class="login-btn logout-btn" type="button" ${!isExtensionAvailable ? 'disabled' : ''}>Login</button>
         </div>
       `;
     }
@@ -132,7 +108,9 @@ export class AuthComponent {
         }
 
         this.updateUI();
-        this.initializeTimeline();
+
+        // Force page reload to reinitialize Timeline with new user
+        window.location.reload();
       } else {
         // Authentication failed
         this.debugLogger.error('Auth', 'Login failed');
@@ -216,20 +194,6 @@ export class AuthComponent {
     return this.element;
   }
 
-  /**
-   * Initialize timeline after authentication
-   */
-  private initializeTimeline(): void {
-    if (!this.currentUser) return;
-
-    const timelineContainer = this.element.querySelector('.timeline-container');
-    if (timelineContainer) {
-      // Create and mount timeline component
-      // TODO: This is architectural debt - AuthComponent shouldn't manage Timeline
-      this.timelineComponent = new TimelineUI(this.currentUser.pubkey);
-      timelineContainer.appendChild(this.timelineComponent.getElement());
-    }
-  }
 
   /**
    * Check for existing session on component initialization
@@ -253,7 +217,9 @@ export class AuthComponent {
           }
 
           this.updateUI();
-          this.initializeTimeline();
+
+          // Reload current route to show Timeline
+          this.router.navigate(window.location.pathname);
         } else {
           this.debugLogger.warn('Auth', 'Failed to restore session - extension unavailable or key mismatch');
         }
@@ -265,9 +231,6 @@ export class AuthComponent {
    * Cleanup resources
    */
   public destroy(): void {
-    if (this.timelineComponent) {
-      this.timelineComponent.destroy();
-    }
     this.element.remove();
   }
 }

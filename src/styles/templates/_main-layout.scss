@@ -57,7 +57,7 @@
 
   .content-wrapper {
     height: 100%;
-    overflow-y: auto;
+    // Normal flow - no flexbox/grid
   }
 
   // Custom scrollbar styling
@@ -92,8 +92,7 @@
 
   .content-wrapper {
     height: 100%;
-    display: flex;
-    flex-direction: column;
+    // Normal flow - no flexbox/grid
   }
 
   .secondary-header {
@@ -102,7 +101,6 @@
     align-items: flex-start;
     padding: $gap 0;
     border-bottom: 1px solid $color-2;
-    flex-shrink: 0;
 
     .secondary-title h2 {
       margin: 0;
@@ -116,7 +114,7 @@
   }
 
   .secondary-content-body {
-    flex: 1;
+    height: calc(100% - 60px); // Full height minus header
     overflow: hidden;
   }
 

@@ -26,6 +26,7 @@
 @use 'components/debug-logger';
 @use 'components/user-status';
 @use 'components/skeleton';
+@use 'components/single-note-view';
 
 // 4. Molecules - Combinations of atoms
 @use 'molecules/forms';

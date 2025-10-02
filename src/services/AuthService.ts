@@ -19,12 +19,20 @@ declare global {
 }
 
 export class AuthService {
+  private static instance: AuthService;
   private extension: NostrExtension | null = null;
   private currentUser: { npub: string; pubkey: string } | null = null;
   private readonly storageKey = 'noornote_auth_session';
 
-  constructor() {
+  private constructor() {
     this.loadSession();
+  }
+
+  public static getInstance(): AuthService {
+    if (!AuthService.instance) {
+      AuthService.instance = new AuthService();
+    }
+    return AuthService.instance;
   }
 
   /**

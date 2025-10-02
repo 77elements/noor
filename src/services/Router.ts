@@ -19,8 +19,7 @@ export class Router {
       this.handleRoute(window.location.pathname);
     });
 
-    // Handle initial route on page load
-    this.handleRoute(window.location.pathname);
+    // Don't handle route here - let App.ts call navigate() after routes are registered
   }
 
   public static getInstance(): Router {

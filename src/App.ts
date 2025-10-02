@@ -6,12 +6,17 @@
 import { MainLayout } from './components/layout/MainLayout';
 import { Router } from './services/Router';
 import { AppState } from './services/AppState';
+import { SingleNoteView } from './components/views/SingleNoteView';
+import { TimelineUI } from './components/timeline/TimelineUI';
+import { AuthService } from './services/AuthService';
 
 export class App {
   private appElement: HTMLElement | null = null;
   private mainLayout: MainLayout | null = null;
   private router: Router;
   private appState: AppState;
+  private authService: AuthService;
+  private timelineUI: TimelineUI | null = null;
 
   constructor() {
     this.appElement = document.getElementById('app');
@@ -21,13 +26,14 @@ export class App {
 
     this.router = Router.getInstance();
     this.appState = AppState.getInstance();
+    this.authService = AuthService.getInstance();
   }
 
   /**
    * Initialize the application
    */
   async initialize(): Promise<void> {
-    // Setup routing
+    // Setup routing FIRST
     this.setupRoutes();
 
     // Setup the main UI
@@ -35,6 +41,9 @@ export class App {
 
     // Setup event listeners
     this.setupEventListeners();
+
+    // Navigate to current route (now that routes are registered)
+    this.router.navigate(window.location.pathname);
   }
 
   /**
@@ -45,7 +54,8 @@ export class App {
     this.router.register('/', () => {
       console.log('📍 ROUTER: Navigating to Timeline View');
       this.appState.setState('view', { currentView: 'timeline' });
-      this.showTimelineView();
+      this.mountPrimaryContent('timeline');
+      this.mountSecondaryContent('debug-log');
     });
 
     // Single Note View route
@@ -55,7 +65,8 @@ export class App {
         currentView: 'single-note',
         currentNoteId: params.noteId
       });
-      this.showSingleNoteView(params.noteId);
+      this.mountPrimaryContent('single-note', params.noteId);
+      this.mountSecondaryContent('debug-log');
     });
 
     // Profile View route (for future)
@@ -65,63 +76,63 @@ export class App {
         currentView: 'profile',
         currentProfileNpub: params.npub
       });
-      console.log('👤 PROFILE: Loading user', params.npub);
-      // TODO: Load ProfileView component
+      this.mountPrimaryContent('profile', params.npub);
+      this.mountSecondaryContent('debug-log');
     });
   }
 
   /**
-   * Show Timeline View (hide other views)
+   * Mount primary content based on route
    */
-  private showTimelineView(): void {
-    // Timeline is already in MainLayout, just ensure it's visible
-    const primaryContent = document.querySelector('.primary-content');
-    if (primaryContent) {
-      // Show existing timeline content
-      const contentWrapper = primaryContent.querySelector('.content-wrapper');
-      if (contentWrapper) {
-        const timeline = contentWrapper.querySelector('.timeline-container');
-        if (timeline) {
-          (timeline as HTMLElement).style.display = 'block';
+  private mountPrimaryContent(viewType: string, param?: string): void {
+    const contentWrapper = document.querySelector('.primary-content .content-wrapper');
+    if (!contentWrapper) return;
+
+    // Clear existing content
+    contentWrapper.innerHTML = '';
+
+    // Mount appropriate view based on route
+    switch (viewType) {
+      case 'timeline': {
+        // Timeline decides internally whether to show login prompt or actual timeline
+        if (!this.timelineUI) {
+          // Get current user from AuthService
+          const currentUser = this.authService.getCurrentUser();
+          if (currentUser) {
+            this.timelineUI = new TimelineUI(currentUser.pubkey);
+          }
         }
+
+        if (this.timelineUI) {
+          contentWrapper.appendChild(this.timelineUI.getElement());
+        }
+        break;
+      }
+
+      case 'single-note': {
+        if (param) {
+          const snv = new SingleNoteView(param);
+          contentWrapper.appendChild(snv.getElement());
+        }
+        break;
+      }
+
+      case 'profile': {
+        // TODO: ProfileView component
+        contentWrapper.innerHTML = `<div>Profile View: ${param}</div>`;
+        break;
       }
     }
   }
 
   /**
-   * Show Single Note View (hide timeline)
+   * Mount secondary content based on route
    */
-  private showSingleNoteView(noteId: string): void {
-    const primaryContent = document.querySelector('.primary-content');
-    if (!primaryContent) return;
-
-    const contentWrapper = primaryContent.querySelector('.content-wrapper');
-    if (!contentWrapper) return;
-
-    // Hide timeline
-    const timeline = contentWrapper.querySelector('.timeline-container');
-    if (timeline) {
-      (timeline as HTMLElement).style.display = 'none';
-    }
-
-    // Create empty SNV placeholder for now
-    let snvContainer = contentWrapper.querySelector('.snv-container') as HTMLElement;
-    if (!snvContainer) {
-      snvContainer = document.createElement('div');
-      snvContainer.className = 'snv-container';
-      contentWrapper.appendChild(snvContainer);
-    }
-
-    snvContainer.style.display = 'block';
-    snvContainer.innerHTML = `
-      <div style="padding: 2rem;">
-        <h1>Single Note View</h1>
-        <p>Note ID: ${noteId}</p>
-        <button onclick="history.back()">← Back to Timeline</button>
-      </div>
-    `;
+  private mountSecondaryContent(contentType: string): void {
+    // Secondary content is currently always debug-log
+    // In future: could be different per route (e.g., note details, profile info, etc.)
+    // For now: Debug logger is already mounted in MainLayout, nothing to do
   }
-
 
   /**
    * Setup the main application UI

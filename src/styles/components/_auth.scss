@@ -6,8 +6,31 @@
 @use '../abstracts/mixins' as *;
 
 .auth-component {
-  height: 100%;
-  @include flex-column;
+  // Compact auth UI for sidebar footer
+  .auth-container {
+    width: 100%;
+
+    .login-btn {
+      width: 100%;
+      padding: calc($gap / 2) $gap;
+      background: $color-4;
+      color: $color-1;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: opacity 0.2s ease;
+
+      &:hover:not(:disabled) {
+        opacity: 0.9;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
 
   .auth-status {
     text-align: center;
