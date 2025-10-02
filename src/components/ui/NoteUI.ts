@@ -169,19 +169,7 @@ export class NoteUI {
     const quoteTags = event.tags.filter(tag => tag[0] === 'q');
     const isQuote = quoteTags.length > 0;
 
-    // NON-BLOCKING: Trigger profile fetch in background (fire and forget)
-    const mentionTags = event.tags.filter(tag => tag[0] === 'p' && tag[3] === 'mention');
-    if (mentionTags.length > 0) {
-      const mentionPubkeys = mentionTags.map(tag => tag[1]);
-      // Fire and forget - profiles will update cache when they arrive
-      NoteUI.userProfileService.getUserProfiles(mentionPubkeys).then(profiles => {
-        profiles.forEach((profile, pubkey) => {
-          NoteUI.profileCache.set(pubkey, profile);
-        });
-      }).catch(err => console.warn('Failed to load mention profiles:', err));
-    }
-
-    const processedContent = NoteUI.processContent(event.content);
+    const processedContent = NoteUI.processContentWithTags(event.content, event.tags);
 
     return {
       id: event.id,
@@ -215,10 +203,12 @@ export class NoteUI {
     }
 
     let originalContent = 'Reposted content';
+    let originalEvent: NostrEvent | null = null;
+
     try {
       if (event.content && event.content.trim()) {
-        const originalEvent = JSON.parse(event.content);
-        if (originalEvent.content) {
+        originalEvent = JSON.parse(event.content);
+        if (originalEvent && originalEvent.content) {
           originalContent = originalEvent.content;
         }
       }
@@ -226,7 +216,10 @@ export class NoteUI {
       console.warn('⚠️ Could not parse repost content as JSON');
     }
 
-    const processedContent = NoteUI.processContent(originalContent);
+    // Process content with original event's tags for proper mention handling
+    const processedContent = originalEvent
+      ? NoteUI.processContentWithTags(originalContent, originalEvent.tags)
+      : NoteUI.processContent(originalContent);
 
     return {
       id: event.id,
@@ -265,6 +258,14 @@ export class NoteUI {
    * SYNCHRONOUS - no blocking calls
    */
   private static processContent(text: string): ProcessedNote['content'] {
+    return NoteUI.processContentWithTags(text, []);
+  }
+
+  /**
+   * Process content with tags (for mention profile loading)
+   * SYNCHRONOUS - no blocking calls
+   */
+  private static processContentWithTags(text: string, tags: string[][]): ProcessedNote['content'] {
     const media = extractMedia(text);
     const links = extractLinks(text);
     const hashtags = extractHashtags(text);
@@ -275,6 +276,18 @@ export class NoteUI {
       id: ref.id,
       fullMatch: ref.fullMatch
     }));
+
+    // NON-BLOCKING: Trigger profile fetch for mentions in background
+    const mentionTags = tags.filter(tag => tag[0] === 'p' && tag[3] === 'mention');
+    if (mentionTags.length > 0) {
+      const mentionPubkeys = mentionTags.map(tag => tag[1]);
+      // Fire and forget - profiles will update cache when they arrive
+      NoteUI.userProfileService.getUserProfiles(mentionPubkeys).then(profiles => {
+        profiles.forEach((profile, pubkey) => {
+          NoteUI.profileCache.set(pubkey, profile);
+        });
+      }).catch(err => console.warn('Failed to load mention profiles:', err));
+    }
 
     // Process mentions FIRST on raw text!
     const profileResolver = (hexPubkey: string) => {
