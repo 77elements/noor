@@ -605,6 +605,37 @@ export class TimelineUI {
   }
 
   /**
+   * Pause background tasks (polling, subscriptions) when navigating away
+   */
+  public pause(): void {
+    this.newNotesDetector.stopPolling();
+
+    if (this.intersectionObserver) {
+      this.intersectionObserver.disconnect();
+    }
+  }
+
+  /**
+   * Resume background tasks when returning to timeline
+   */
+  public resume(): void {
+    // Restart polling if we have events
+    if (this.events.length > 0) {
+      const newestTimestamp = Math.max(...this.events.map(e => e.created_at));
+      this.newNotesDetector.startPolling(
+        this.followingPubkeys,
+        newestTimestamp,
+        (info: NewNotesInfo) => this.handleNewNotesDetected(info),
+        this.includeReplies,
+        60000
+      );
+    }
+
+    // Restart intersection observer
+    this.setupInfiniteScroll();
+  }
+
+  /**
    * Cleanup resources
    */
   public destroy(): void {

@@ -291,6 +291,14 @@ export class DebugLogger {
   }
 
   /**
+   * Clear only page logs (for view transitions)
+   */
+  public clearPageLogs(): void {
+    this.pageLogs = [];
+    this.renderPageLogs();
+  }
+
+  /**
    * Get DOM element
    */
   public getElement(): HTMLElement {
