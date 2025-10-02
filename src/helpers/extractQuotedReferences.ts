@@ -20,8 +20,8 @@ export interface QuotedReference {
 export function extractQuotedReferences(text: string): QuotedReference[] {
   const quotes: QuotedReference[] = [];
 
-  // Single regex to catch all nostr references (event, note, nevent, addr)
-  const nostrRegex = /nostr:(event1[a-z0-9]{58}|note1[a-z0-9]{58}|nevent1[a-z0-9]+|addr1[a-z0-9]+)/gi;
+  // Single regex to catch all nostr references (event, note, nevent, naddr)
+  const nostrRegex = /nostr:(event1[a-z0-9]{58}|note1[a-z0-9]{58}|nevent1[a-z0-9]+|naddr[a-z0-9]+)/gi;
   const matches = text.match(nostrRegex) || [];
 
   matches.forEach(match => {
@@ -30,7 +30,7 @@ export function extractQuotedReferences(text: string): QuotedReference[] {
     if (match.includes('event1')) type = 'event';
     else if (match.includes('note1')) type = 'note';
     else if (match.includes('nevent1')) type = 'nevent';
-    else if (match.includes('addr1')) type = 'addr';
+    else if (match.includes('naddr')) type = 'addr';
 
     quotes.push({
       type,

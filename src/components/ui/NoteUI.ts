@@ -6,23 +6,15 @@
 
 import type { Event as NostrEvent } from 'nostr-tools';
 import { NoteHeader } from './NoteHeader';
-import { QuoteNoteFetcher, type QuoteFetchError } from '../../services/QuoteNoteFetcher';
 import { UserProfileService } from '../../services/UserProfileService';
 import { Router } from '../../services/Router';
+import { ContentProcessor } from '../../services/ContentProcessor';
+import { QuotedNoteRenderer } from '../../services/QuotedNoteRenderer';
 import { renderMediaContent } from '../../helpers/renderMediaContent';
 import { renderQuotedReferencesPlaceholder } from '../../helpers/renderQuotedReferencesPlaceholder';
 import { npubToUsername } from '../../helpers/npubToUsername';
 import { hexToNpub } from '../../helpers/hexToNpub';
-import { escapeHtml } from '../../helpers/escapeHtml';
-import { linkifyUrls } from '../../helpers/linkifyUrls';
-import { formatHashtags } from '../../helpers/formatHashtags';
-import { formatQuotedReferences } from '../../helpers/formatQuotedReferences';
-import { convertLineBreaks } from '../../helpers/convertLineBreaks';
-import { extractMedia } from '../../helpers/extractMedia';
 import { nip19 } from 'nostr-tools';
-import { extractLinks } from '../../helpers/extractLinks';
-import { extractHashtags } from '../../helpers/extractHashtags';
-import { extractQuotedReferences } from '../../helpers/extractQuotedReferences';
 
 // Types from NoteContentProcessing (now local)
 export interface ProcessedNote {
@@ -83,8 +75,8 @@ export interface QuotedReference {
 export class NoteUI {
   private static noteHeaders: Map<string, NoteHeader> = new Map();
   private static userProfileService: UserProfileService = UserProfileService.getInstance();
-  private static quoteFetcher: QuoteNoteFetcher = QuoteNoteFetcher.getInstance();
-  private static profileCache: Map<string, any> = new Map();
+  private static contentProcessor: ContentProcessor = ContentProcessor.getInstance();
+  private static quotedNoteRenderer: QuotedNoteRenderer = QuotedNoteRenderer.getInstance();
 
   // Maximum nesting depth for quoted notes (prevents infinite recursion)
   private static readonly MAX_NESTING_DEPTH = 2;
@@ -161,15 +153,15 @@ export class NoteUI {
   }
 
   /**
-   * Process text note (kind 1) with direct helpers
+   * Process text note (kind 1) with ContentProcessor
    * SYNCHRONOUS - no blocking calls
    */
   private static processTextNote(event: NostrEvent): ProcessedNote {
-    const authorProfile = NoteUI.getNonBlockingProfile(event.pubkey);
+    const authorProfile = NoteUI.contentProcessor.getNonBlockingProfile(event.pubkey);
     const quoteTags = event.tags.filter(tag => tag[0] === 'q');
     const isQuote = quoteTags.length > 0;
 
-    const processedContent = NoteUI.processContentWithTags(event.content, event.tags);
+    const processedContent = NoteUI.contentProcessor.processContentWithTags(event.content, event.tags);
 
     return {
       id: event.id,
@@ -189,17 +181,17 @@ export class NoteUI {
   }
 
   /**
-   * Process repost (kind 6) with direct helpers
+   * Process repost (kind 6) with ContentProcessor
    * SYNCHRONOUS - no blocking calls
    */
   private static processRepost(event: NostrEvent): ProcessedNote {
-    const reposterProfile = NoteUI.getNonBlockingProfile(event.pubkey);
+    const reposterProfile = NoteUI.contentProcessor.getNonBlockingProfile(event.pubkey);
     const originalEventId = NoteUI.extractOriginalEventId(event);
     const originalAuthorPubkey = NoteUI.extractOriginalAuthorPubkey(event);
 
     let originalAuthorProfile;
     if (originalAuthorPubkey) {
-      originalAuthorProfile = NoteUI.getNonBlockingProfile(originalAuthorPubkey);
+      originalAuthorProfile = NoteUI.contentProcessor.getNonBlockingProfile(originalAuthorPubkey);
     }
 
     let originalContent = 'Reposted content';
@@ -218,8 +210,8 @@ export class NoteUI {
 
     // Process content with original event's tags for proper mention handling
     const processedContent = originalEvent
-      ? NoteUI.processContentWithTags(originalContent, originalEvent.tags)
-      : NoteUI.processContent(originalContent);
+      ? NoteUI.contentProcessor.processContentWithTags(originalContent, originalEvent.tags)
+      : NoteUI.contentProcessor.processContent(originalContent);
 
     return {
       id: event.id,
@@ -251,144 +243,6 @@ export class NoteUI {
       content: processedContent,
       rawEvent: event
     };
-  }
-
-  /**
-   * Process content with individual helpers (replaces formatContent)
-   * SYNCHRONOUS - no blocking calls
-   */
-  private static processContent(text: string): ProcessedNote['content'] {
-    return NoteUI.processContentWithTags(text, []);
-  }
-
-  /**
-   * Process content with tags (for mention profile loading)
-   * SYNCHRONOUS - no blocking calls
-   */
-  private static processContentWithTags(text: string, tags: string[][]): ProcessedNote['content'] {
-    const media = extractMedia(text);
-    const links = extractLinks(text);
-    const hashtags = extractHashtags(text);
-    const quotedRefs = extractQuotedReferences(text);
-
-    const quotedReferences: QuotedReference[] = quotedRefs.map(ref => ({
-      type: ref.type as 'event' | 'note' | 'addr',
-      id: ref.id,
-      fullMatch: ref.fullMatch
-    }));
-
-    // NON-BLOCKING: Trigger profile fetch for mentions in background
-    const mentionTags = tags.filter(tag => tag[0] === 'p' && tag[3] === 'mention');
-    if (mentionTags.length > 0) {
-      const mentionPubkeys = mentionTags.map(tag => tag[1]);
-      // Fire and forget - profiles will update cache when they arrive
-      NoteUI.userProfileService.getUserProfiles(mentionPubkeys).then(profiles => {
-        profiles.forEach((profile, pubkey) => {
-          NoteUI.profileCache.set(pubkey, profile);
-        });
-      }).catch(err => console.warn('Failed to load mention profiles:', err));
-    }
-
-    // Process mentions FIRST on raw text!
-    const profileResolver = (hexPubkey: string) => {
-      const profile = NoteUI.getNonBlockingProfile(hexPubkey);
-      return profile ? {
-        name: profile.name,
-        display_name: profile.display_name,
-        picture: profile.picture
-      } : null;
-    };
-
-    // Remove media URLs and quoted references from text
-    let cleanedText = text;
-    media.forEach(item => {
-      cleanedText = cleanedText.replace(item.url, '');
-    });
-    quotedReferences.forEach(ref => {
-      cleanedText = cleanedText.replace(ref.fullMatch, '');
-    });
-    cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n').trim();
-
-    // Process HTML with individual helpers (replacing formatContent)
-    let html = escapeHtml(cleanedText);
-    html = linkifyUrls(html);
-    html = npubToUsername(html, 'html-multi', profileResolver);
-
-    html = formatHashtags(html, hashtags);
-    html = formatQuotedReferences(html, quotedReferences);
-    html = convertLineBreaks(html);
-
-    return {
-      text,
-      html,
-      media,
-      links,
-      hashtags,
-      quotedReferences
-    };
-  }
-
-  /**
-   * ============================================================================
-   * POST-PROCESSING: npubToUsername Helper Follow-up
-   * ============================================================================
-   * When npubToUsername runs initially, profiles may not be loaded yet,
-   * so mentions are rendered as raw "nostr:npub..." strings with links.
-   * This method updates those mentions in the DOM once profiles are loaded.
-   * (NIP-27 Progressive Enhancement Pattern)
-   */
-  private static updateMentionsInDOM(hexPubkey: string, profile: any): void {
-    const username = profile.name || profile.display_name;
-    if (!username) return;
-
-    // Convert hex to npub for profile URL
-    const npub = hexToNpub(hexPubkey);
-
-    // Find all mention links that point to this profile
-    const mentionLinks = document.querySelectorAll(`a[href="/profile/${npub}"]`);
-
-    mentionLinks.forEach((link) => {
-      const linkElement = link as HTMLAnchorElement;
-      const currentText = linkElement.textContent || '';
-
-      // Only update if it's still showing the raw nostr: format
-      if (currentText.startsWith('nostr:npub') || currentText.startsWith('nostr:nprofile')) {
-        linkElement.textContent = `@${username}`;
-      }
-    });
-  }
-
-  /**
-   * Get profile non-blocking with cache
-   */
-  private static getNonBlockingProfile(pubkey: string): any {
-    if (NoteUI.profileCache.has(pubkey)) {
-      return NoteUI.profileCache.get(pubkey);
-    }
-
-    const fallbackProfile = {
-      pubkey,
-      name: null,
-      display_name: null,
-      picture: '',
-      about: null
-    };
-
-    NoteUI.profileCache.set(pubkey, fallbackProfile);
-
-    NoteUI.userProfileService.getUserProfile(pubkey)
-      .then(realProfile => {
-        if (realProfile) {
-          NoteUI.profileCache.set(pubkey, realProfile);
-          // Update all mentions in DOM for this pubkey
-          NoteUI.updateMentionsInDOM(pubkey, realProfile);
-        }
-      })
-      .catch(error => {
-        console.warn(`Profile load failed for ${pubkey.slice(0, 8)}:`, error);
-      });
-
-    return fallbackProfile;
   }
 
   /**
@@ -489,8 +343,8 @@ export class NoteUI {
       });
     }
 
-    // Original note content with original author (same depth, not nested deeper)
-    const originalNoteElement = NoteUI.createOriginalNoteElement(note, depth);
+    // Original note content with original author (depth 0 to enable collapsible)
+    const originalNoteElement = NoteUI.createOriginalNoteElement(note, 0);
 
     repostDiv.appendChild(repostHeader);
     repostDiv.appendChild(originalNoteElement);
@@ -596,10 +450,10 @@ export class NoteUI {
     // Store reference for cleanup
     NoteUI.noteHeaders.set(note.id, noteHeader);
 
-    // Render quoted notes with increased depth (NO AWAIT - fire and forget!)
+    // Render quoted notes using QuotedNoteRenderer (NO AWAIT - fire and forget!)
     const quotedContainer = element.querySelector('.quoted-notes-container');
     if (quotedContainer && note.content.quotedReferences.length > 0) {
-      NoteUI.renderQuotedNotes(note.content.quotedReferences, quotedContainer, depth + 1);
+      NoteUI.quotedNoteRenderer.renderQuotedNotes(note.content.quotedReferences, quotedContainer);
     }
 
     return element;
@@ -631,176 +485,6 @@ export class NoteUI {
    */
   private static hasLongContent(content: string): boolean {
     return content.length > 500 || content.split('\n').length > 10;
-  }
-
-  /**
-   * Render quoted notes as orange quote boxes (COMPLETELY NON-BLOCKING)
-   * Returns immediately after creating skeletons, all fetching happens in background
-   */
-  private static renderQuotedNotes(quotedReferences: ProcessedNote['content']['quotedReferences'], container: Element, depth: number): void {
-    // Render ALL skeletons immediately (synchronous)
-    quotedReferences.forEach((ref, index) => {
-      const skeleton = NoteUI.createQuoteSkeleton();
-      skeleton.dataset.quoteRef = ref.fullMatch;
-      container.appendChild(skeleton);
-
-      // Fetch quote in background (fire and forget - no await!)
-      NoteUI.fetchAndRenderQuote(ref, skeleton, depth, index + 1, quotedReferences.length);
-    });
-  }
-
-  /**
-   * Fetch single quote and update DOM when ready (background task)
-   */
-  private static async fetchAndRenderQuote(
-    ref: ProcessedNote['content']['quotedReferences'][0],
-    skeleton: HTMLElement,
-    depth: number,
-    quoteNum: number,
-    totalQuotes: number
-  ): Promise<void> {
-    try {
-      // Fetch the quoted event
-      const result = await NoteUI.quoteFetcher.fetchQuotedEventWithError(ref.fullMatch);
-
-      if (result.success) {
-        // Render the quote note (SYNCHRONOUS now - no await needed!)
-        const quotedNoteElement = NoteUI.createNoteElement(result.event, undefined, depth);
-
-        // Wrap in quote box
-        const quoteBox = document.createElement('div');
-        quoteBox.className = 'quote-box';
-        quoteBox.appendChild(quotedNoteElement);
-
-        // Add click handler
-        quoteBox.addEventListener('click', (e) => {
-          e.stopPropagation();
-          console.log(`Expand quoted note: ${result.event.id.slice(0, 8)}`);
-        });
-
-        // Replace skeleton with actual quote (progressive DOM update)
-        skeleton.replaceWith(quoteBox);
-      } else {
-        // Error - show error message
-        const errorElement = NoteUI.createQuoteError(result.error, ref.fullMatch);
-        skeleton.replaceWith(errorElement);
-      }
-
-    } catch (error) {
-      console.error(`❌ Quote fetch failed:`, error);
-      skeleton.remove();
-    }
-  }
-
-  /**
-   * Create error element for failed quote fetch
-   */
-  private static createQuoteError(error: QuoteFetchError, reference: string): HTMLElement {
-    const errorDiv = document.createElement('div');
-
-    switch (error.type) {
-      case 'not_found':
-        errorDiv.className = 'quote-not-found';
-        errorDiv.innerHTML = `
-          <div class="quote-error-content">
-            <span class="error-icon">🔍</span>
-            <div class="error-details">
-              <span class="error-text">${error.message}</span>
-              <small class="error-id">ID: ${error.eventId}...</small>
-            </div>
-          </div>
-        `;
-        break;
-
-      case 'network':
-        errorDiv.className = 'quote-network-error';
-        errorDiv.innerHTML = `
-          <div class="quote-error-content">
-            <span class="error-icon">⚠️</span>
-            <div class="error-details">
-              <span class="error-text">${error.message}</span>
-              <button class="retry-btn" data-reference="${reference}">Try again</button>
-            </div>
-          </div>
-        `;
-
-        // Add retry handler
-        const retryBtn = errorDiv.querySelector('.retry-btn');
-        if (retryBtn) {
-          retryBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const btn = e.target as HTMLButtonElement;
-            btn.disabled = true;
-            btn.textContent = 'Retrying...';
-
-            // Retry fetch
-            const result = await NoteUI.quoteFetcher.fetchQuotedEventWithError(reference);
-
-            if (result.success) {
-              // Replace error with actual note
-              const quotedNoteElement = await NoteUI.createNoteElement(result.event);
-              const quoteBox = document.createElement('div');
-              quoteBox.className = 'quote-box';
-              quoteBox.appendChild(quotedNoteElement);
-              errorDiv.replaceWith(quoteBox);
-            } else {
-              // Retry failed
-              btn.disabled = false;
-              btn.textContent = 'Try again';
-            }
-          });
-        }
-        break;
-
-      case 'parse':
-        errorDiv.className = 'quote-parse-error';
-        errorDiv.innerHTML = `
-          <div class="quote-error-content">
-            <span class="error-icon">⚠️</span>
-            <div class="error-details">
-              <span class="error-text">${error.message}</span>
-              <small class="error-ref">${error.reference.slice(0, 30)}...</small>
-            </div>
-          </div>
-        `;
-        break;
-
-      default:
-        errorDiv.className = 'quote-error';
-        errorDiv.innerHTML = `
-          <div class="quote-error-content">
-            <span class="error-icon">⚠️</span>
-            <span class="error-text">${error.message}</span>
-          </div>
-        `;
-    }
-
-    return errorDiv;
-  }
-
-  /**
-   * Create skeleton loader for quoted note during fetch
-   */
-  private static createQuoteSkeleton(): HTMLElement {
-    const skeleton = document.createElement('div');
-    skeleton.className = 'quote-skeleton';
-
-    skeleton.innerHTML = `
-      <div class="skeleton-header">
-        <div class="skeleton-avatar"></div>
-        <div class="skeleton-text-group">
-          <div class="skeleton-line skeleton-name"></div>
-          <div class="skeleton-line skeleton-timestamp"></div>
-        </div>
-      </div>
-      <div class="skeleton-content">
-        <div class="skeleton-line skeleton-text-line"></div>
-        <div class="skeleton-line skeleton-text-line"></div>
-        <div class="skeleton-line skeleton-text-line short"></div>
-      </div>
-    `;
-
-    return skeleton;
   }
 
   /**

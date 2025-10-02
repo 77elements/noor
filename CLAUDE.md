@@ -156,6 +156,52 @@ Then we'll take 1-2 steps back from the whole thing and consider more architectu
 
 ## 📋 TODO: Future Improvements
 
+### Thread Context & Deep Quote Chains (Priority: Critical)
+Nostr frequently has deep quote chains (6+ levels). Currently no thread awareness exists.
+
+**Scenario to support:**
+```
+Iteration 0: Original Post (with media processing)
+Iteration 1: Quote Repost of It.0 (with processing)
+Iteration 2: Quote Repost of It.1 (with processing)
+Iteration 3: Quote Repost of It.2 (with processing)
+Iteration 4: Quote Repost of It.3 (with processing)
+Iteration 5: Quote Repost of It.4 (with processing)
+Iteration 6: Repost of It.5
+```
+
+**Requirements:**
+- Every iteration must render correctly with full content processing
+- Every iteration must be openable in SNV
+- SNV at Iteration 3 should show:
+  - Thread view: Iteration 2 (parent) and Iteration 4 (child)
+  - "Show More" links for: 0, 1, 5, 6 (not in immediate context)
+- ONE unified implementation for Timeline and SNV
+
+**Architecture Solution:**
+```typescript
+ThreadContext {
+  currentNoteId: string
+  parentChain: Event[]      // [It.2, It.1, It.0] - reverse order
+  childChain: Event[]       // [It.4, It.5, It.6]
+  displayDepth: number      // how many parent/child to show
+}
+```
+
+**SNV Flow:**
+1. Fetch current note
+2. Fetch parent (via 'q' or 'e' tags)
+3. Fetch children (who quoted ME?)
+4. Render: Parent (-1) → Current (0) → Child (+1)
+5. "Show More" links for rest of chain
+
+**Files to create/modify:**
+- `src/services/ThreadContext.ts` - Thread navigation service
+- Refactor NoteUI/SNV to share rendering logic
+- Add parent/child fetching to SNV
+
+---
+
 ### Event Bus System (Priority: High)
 Currently using `window.location.reload()` after login to reinitialize Timeline with user data. This is a hack.
 
@@ -174,6 +220,33 @@ Currently using `window.location.reload()` after login to reinitialize Timeline 
 - `src/services/EventBus.ts` - Singleton event bus with pub/sub pattern
 - Update AuthComponent to emit `user:login` event instead of reload
 - Update App.ts to listen for `user:login` and recreate Timeline
+
+---
+
+### Long-form Content Support (NIP-23) (Priority: Medium)
+Currently `naddr` references (addressable events) are ignored. These are used for long-form articles, blogs, live streams, etc.
+
+**Test Case:**
+```
+nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8wumn8ghj7enfd36x2u3wdehhxarj9emkjmn99uq36amnwvaz7tmfdejx27r9wghxxmmjv93kcefwwdhkx6tpdshsqvtfde68ymmyw43kjmn894kkzundda6z6argv5kkvat5w4ex2tt0vckhxetrw4ex2ttdv4ehxct8d9hxw09cvnl
+```
+(Found in Marmot article repost - "Introducing Marmot: The Future of Secure Messaging")
+
+**Implementation:**
+1. Decode naddr (extract kind, pubkey, d-tag)
+2. Fetch addressable event with filter: `{ kinds: [kind], authors: [pubkey], "#d": [dtag] }`
+3. Parse NIP-23 tags: `title`, `image`, `summary`, `published_at`
+4. Render quote box with title + author (clickable)
+5. Create Article View with markdown rendering (use `marked` library)
+6. Style article typography (headers, images, code blocks, lists, etc.)
+
+**Estimated Time:**
+- Minimal (quote box + basic article view): 45-60 min
+- Full-featured (like Jumble with proper styling): 2-3 hours
+
+**Files to create:**
+- `src/components/views/ArticleView.ts` - Long-form content display
+- `src/helpers/renderArticleContent.ts` - NIP-23 markdown processor
 
 ---
 

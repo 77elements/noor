@@ -151,6 +151,10 @@ export class QuoteNoteFetcher {
             return decoded.data as string;
           case 'nevent':
             return (decoded.data as any).id;
+          case 'naddr':
+            // naddr is for replaceable events (kind 30xxx), skip for now
+            console.warn('⚠️ naddr references not yet supported:', nostrRef);
+            return null;
           default:
             break;
         }
