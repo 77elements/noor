@@ -1,6 +1,15 @@
 # Noornote - High-Performance Nostr Web Client
 
 # ═══════════════════════════════════════════════════════════════
+# 📖 ABBREVIATIONS
+# ═══════════════════════════════════════════════════════════════
+
+- **TV** - Timeline View
+- **SNV** - Single Note View
+- **ISL** - Interaction Status Line (Likes, Reposts, Zaps, Analytics)
+- **CSM** - Central State Management
+
+# ═══════════════════════════════════════════════════════════════
 # 🔒 CORE SYSTEM SPECIFICATIONS - NEVER MODIFY WITHOUT EXPLICIT USER REQUEST
 # ═══════════════════════════════════════════════════════════════
 
@@ -257,7 +266,7 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 ## 🚧 IN PROGRESS: Single Note View (SNV) - Started 2025-10-02
 
 **TODO:**
-- [ ] Implement ISZ component (Interaction Status Line: Likes, Reposts, Zaps, Analytics)
+- [ ] Implement ISL component (Interaction Status Line: Likes, Reposts, Zaps, Analytics)
 - [ ] Implement reply fetching and rendering
 - [ ] Test & polish
 
