@@ -10,6 +10,7 @@ import { SingleNoteView } from './components/views/SingleNoteView';
 import { TimelineUI } from './components/timeline/TimelineUI';
 import { AuthService } from './services/AuthService';
 import { DebugLogger } from './components/debug/DebugLogger';
+import { EventBus } from './services/EventBus';
 
 export class App {
   private appElement: HTMLElement | null = null;
@@ -17,6 +18,7 @@ export class App {
   private router: Router;
   private appState: AppState;
   private authService: AuthService;
+  private eventBus: EventBus;
   private timelineUI: TimelineUI | null = null;
 
   constructor() {
@@ -28,6 +30,7 @@ export class App {
     this.router = Router.getInstance();
     this.appState = AppState.getInstance();
     this.authService = AuthService.getInstance();
+    this.eventBus = EventBus.getInstance();
   }
 
   /**
@@ -168,6 +171,9 @@ export class App {
 
     // Handle visibility change (for performance optimization)
     document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+
+    // Listen for user login event to recreate Timeline
+    this.eventBus.on('user:login', this.handleUserLogin.bind(this));
   }
 
   /**
@@ -183,6 +189,17 @@ export class App {
   private handleVisibilityChange(): void {
     // Currently no performance optimizations on visibility change
     // Nostr subscriptions are lightweight and can remain active
+  }
+
+  /**
+   * Handle user login event - recreate Timeline with authenticated user
+   */
+  private handleUserLogin(data: { npub: string; pubkey: string }): void {
+    // Create new TimelineUI with authenticated user's pubkey
+    this.timelineUI = new TimelineUI(data.pubkey);
+
+    // Mount Timeline directly (router.navigate would do nothing if already on '/')
+    this.mountPrimaryContent('timeline');
   }
 }
 

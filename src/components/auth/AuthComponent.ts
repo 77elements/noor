@@ -6,6 +6,7 @@
 import { AuthService } from '../../services/AuthService';
 import { DebugLogger } from '../debug/DebugLogger';
 import { Router } from '../../services/Router';
+import { EventBus } from '../../services/EventBus';
 
 // Forward declaration to avoid circular dependency
 interface MainLayoutInterface {
@@ -18,6 +19,7 @@ export class AuthComponent {
   private authService: AuthService;
   private debugLogger: DebugLogger;
   private router: Router;
+  private eventBus: EventBus;
   private mainLayout: MainLayoutInterface | null = null;
   private currentUser: { npub: string; pubkey: string } | null = null;
 
@@ -25,6 +27,7 @@ export class AuthComponent {
     this.authService = AuthService.getInstance();
     this.debugLogger = DebugLogger.getInstance();
     this.router = Router.getInstance();
+    this.eventBus = EventBus.getInstance();
     this.mainLayout = mainLayout || null;
 
     // Check session BEFORE creating UI
@@ -109,8 +112,8 @@ export class AuthComponent {
 
         this.updateUI();
 
-        // Force page reload to reinitialize Timeline with new user
-        window.location.reload();
+        // Emit user:login event to trigger Timeline recreation
+        this.eventBus.emit('user:login', { npub: result.npub, pubkey: result.pubkey });
       } else {
         // Authentication failed
         this.debugLogger.error('Auth', 'Login failed');
