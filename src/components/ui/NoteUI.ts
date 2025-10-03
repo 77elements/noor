@@ -6,6 +6,7 @@
 
 import type { Event as NostrEvent } from 'nostr-tools';
 import { NoteHeader } from './NoteHeader';
+import { InteractionStatusLine } from './InteractionStatusLine';
 import { UserProfileService } from '../../services/UserProfileService';
 import { Router } from '../../services/Router';
 import { ContentProcessor } from '../../services/ContentProcessor';
@@ -74,6 +75,7 @@ export interface QuotedReference {
 
 export class NoteUI {
   private static noteHeaders: Map<string, NoteHeader> = new Map();
+  private static interactionStatusLines: Map<string, InteractionStatusLine> = new Map();
   private static userProfileService: UserProfileService = UserProfileService.getInstance();
   private static contentProcessor: ContentProcessor = ContentProcessor.getInstance();
   private static quotedNoteRenderer: QuotedNoteRenderer = QuotedNoteRenderer.getInstance();
@@ -400,12 +402,24 @@ export class NoteUI {
         <span class="event-kind">Kind ${note.rawEvent.kind}${options.footerLabel ? ` (${options.footerLabel})` : ''}</span>
         <span class="event-id">${note.id.slice(0, 8)}...</span>
       </div>
+      <div class="event-isl-container"></div>
     `;
 
     // Mount note header
     const headerContainer = noteDiv.querySelector('.event-header-container');
     if (headerContainer) {
       headerContainer.appendChild(noteHeader.getElement());
+    }
+
+    // Mount ISL (without stats fetching in Timeline for performance)
+    const islContainer = noteDiv.querySelector('.event-isl-container');
+    if (islContainer) {
+      const isl = new InteractionStatusLine({
+        noteId: note.id,
+        fetchStats: false
+      });
+      islContainer.appendChild(isl.getElement());
+      NoteUI.interactionStatusLines.set(note.id, isl);
     }
 
     // Add click handler to navigate to Single Note View
@@ -488,21 +502,28 @@ export class NoteUI {
   }
 
   /**
-   * Cleanup note headers for memory management
+   * Cleanup note headers and ISL for memory management
    */
   static cleanup(noteId: string): void {
     const noteHeader = NoteUI.noteHeaders.get(noteId);
     if (noteHeader) {
-      // Clean up any event listeners or resources
       NoteUI.noteHeaders.delete(noteId);
+    }
+
+    const isl = NoteUI.interactionStatusLines.get(noteId);
+    if (isl) {
+      isl.destroy();
+      NoteUI.interactionStatusLines.delete(noteId);
     }
   }
 
   /**
-   * Cleanup all note headers
+   * Cleanup all note headers and ISLs
    */
   static cleanupAll(): void {
     NoteUI.noteHeaders.clear();
+    NoteUI.interactionStatusLines.forEach(isl => isl.destroy());
+    NoteUI.interactionStatusLines.clear();
   }
 
   /**

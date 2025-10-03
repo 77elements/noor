@@ -1,0 +1,109 @@
+/**
+ * Interaction Status Line (ISL) Component Styles
+ * Action buttons for Reply, Repost, Like, Zap
+ */
+
+@use '../abstracts/variables' as *;
+
+.isl {
+  display: flex;
+  align-items: center;
+  gap: $gap * 2;
+  padding: calc($gap / 2) 0;
+  margin-top: $gap;
+  border-top: 1px solid var(--border-color);
+}
+
+.isl-action {
+  display: flex;
+  align-items: center;
+  gap: calc($gap / 2);
+  padding: calc($gap / 2) $gap;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.isl-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.isl-count {
+  font-size: 0.85rem;
+  font-weight: 500;
+  min-width: 20px;
+  text-align: left;
+}
+
+// Specific action colors on hover
+.isl-reply:hover {
+  color: var(--primary-color);
+}
+
+.isl-repost:hover {
+  color: #10b981; // Green
+}
+
+.isl-like:hover {
+  color: #ef4444; // Red
+
+  .isl-icon {
+    // Change to filled heart on hover
+    &::before {
+      content: '♥';
+    }
+  }
+}
+
+.isl-zap:hover {
+  color: #f59e0b; // Orange/Yellow
+}
+
+.isl-analytics {
+  margin-left: auto; // Push to the right
+
+  &:hover {
+    color: var(--primary-color);
+  }
+}
+
+// Active states (when user has interacted)
+.isl-action.active {
+  color: var(--text-primary);
+
+  &.isl-reply {
+    color: var(--primary-color);
+  }
+
+  &.isl-repost {
+    color: #10b981;
+  }
+
+  &.isl-like {
+    color: #ef4444;
+
+    .isl-icon {
+      &::before {
+        content: '♥'; // Filled heart when liked
+      }
+    }
+  }
+
+  &.isl-zap {
+    color: #f59e0b;
+  }
+}

@@ -27,6 +27,7 @@
 @use 'components/user-status';
 @use 'components/skeleton';
 @use 'components/single-note-view';
+@use 'components/interaction-status-line';
 
 // 4. Molecules - Combinations of atoms
 @use 'molecules/forms';

@@ -5,6 +5,7 @@
  */
 
 import { NoteHeader } from '../ui/NoteHeader';
+import { InteractionStatusLine } from '../ui/InteractionStatusLine';
 import { fetchNostrEvents } from '../../helpers/fetchNostrEvents';
 import { RelayConfig } from '../../services/RelayConfig';
 import { ContentProcessor, type QuotedReference } from '../../services/ContentProcessor';
@@ -145,6 +146,7 @@ export class SingleNoteView {
       <div class="snv-note__content">${processedContent.html}</div>
       ${renderMediaContent(processedContent.media)}
       <div class="quoted-notes-container"></div>
+      <div class="snv-note__isl-container"></div>
       <div class="snv-note__footer">
         <button class="snv-back-btn" onclick="history.back()">← Back to Timeline</button>
       </div>
@@ -162,6 +164,19 @@ export class SingleNoteView {
       if (quotedContainer) {
         this.quotedNoteRenderer.renderQuotedNotes(processedContent.quotedReferences, quotedContainer);
       }
+    }
+
+    // Mount ISL
+    const islContainer = noteElement.querySelector('.snv-note__isl-container');
+    if (islContainer) {
+      const isl = new InteractionStatusLine({
+        noteId: event.id,
+        fetchStats: true,
+        onAnalytics: () => {
+          console.log('📊 Open analytics modal for:', event.id);
+        }
+      });
+      islContainer.appendChild(isl.getElement());
     }
 
     this.container.appendChild(noteElement);
@@ -225,6 +240,7 @@ export class SingleNoteView {
       <div class="snv-note__content">${processedContent.html}</div>
       ${renderMediaContent(processedContent.media)}
       <div class="quoted-notes-container"></div>
+      <div class="snv-note__isl-container"></div>
       <div class="snv-note__footer">
         <button class="snv-back-btn" onclick="history.back()">← Back to Timeline</button>
       </div>
@@ -242,6 +258,20 @@ export class SingleNoteView {
       if (quotedContainer) {
         this.quotedNoteRenderer.renderQuotedNotes(processedContent.quotedReferences, quotedContainer);
       }
+    }
+
+    // Mount ISL
+    const islContainer = noteElement.querySelector('.snv-note__isl-container');
+    if (islContainer) {
+      const noteId = originalEvent.id || repostEvent.id;
+      const isl = new InteractionStatusLine({
+        noteId: noteId,
+        fetchStats: true,
+        onAnalytics: () => {
+          console.log('📊 Open analytics modal for:', noteId);
+        }
+      });
+      islContainer.appendChild(isl.getElement());
     }
 
     this.container.appendChild(noteElement);

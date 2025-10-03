@@ -120,6 +120,42 @@ If you are not sure, ask the user. If you do not get an answer, it is better to 
 - **Dark Mode**: System preference with manual override
 - **CSS Grid**: Modern layout with progressive enhancement
 
+## 🏗️ ORCHESTRATOR ARCHITECTURE
+
+**Based on Gossip pattern (code.png/code1.png). All Nostr events flow:**
+```
+Components → Orchestrators → Router → Transport → Relays
+```
+
+**Absolute Rules:**
+- ❌ Components NEVER call SimplePool directly
+- ✅ One subscription per type in Router, distributed to Orchestrators
+- ✅ All Orchestrators extend `Orchestrator` base class (like Gossip)
+
+**File Structure:**
+```
+src/services/
+├── EventBus.ts                      ← UI events (user:login, etc)
+├── transport/NostrTransport.ts      ← SimplePool wrapper
+└── orchestration/
+    ├── Orchestrator.ts              ← Abstract base
+    ├── OrchestrationsRouter.ts      ← Central hub
+    ├── FeedOrchestrator.ts
+    ├── ReactionsOrchestrator.ts
+    ├── ThreadOrchestrator.ts
+    └── ProfileOrchestrator.ts
+```
+
+**Cache TTLs:**
+- Notes (kind:1): Permanent
+- Profiles (kind:0): 24h
+- Reactions (kind:7): 60s or live if SNV open
+
+**JSDoc Required:**
+```typescript
+/** @orchestrator Name | @purpose What | @used-by Who */
+```
+
 ## ABSOLUTE RULE - NO EXCEPTIONS
 
 1. **HEX pubkeys**: NEVER visible in Frontend UI - internal use only
@@ -263,10 +299,164 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 # 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY
 # ═══════════════════════════════════════════════════════════════
 
-## 🚧 IN PROGRESS: Single Note View (SNV) - Started 2025-10-02
+## 🏗️ ORCHESTRATOR ARCHITECTURE - Implementation Plan (2025-10-03)
 
-**TODO:**
-- [ ] Implement ISL component (Interaction Status Line: Likes, Reposts, Zaps, Analytics)
-- [ ] Implement reply fetching and rendering
+**Branch:** `orchestrator`
+**Status:** Planning & Documentation Phase
+**Goal:** Enterprise-ready Nostr event architecture before Write-Events/DMs/Notifications
+
+---
+
+### Migration Strategy (Small Commits, Always Buildable):
+
+**Phase 1: EventBus (1-2h, minimal risk)**
+- Create `src/services/EventBus.ts` - Simple pub/sub for UI events
+- Events: `user:login`, `user:logout`, `view:change`, `note:created`
+- Replace `window.location.reload()` in AuthComponent
+- App.ts listens to `user:login` → recreates Timeline
+- **Commit:** "Add EventBus for UI-level coordination"
+
+**Phase 2: Foundation (2-3h, no breaking changes)**
+- Create `src/services/transport/NostrTransport.ts` - SimplePool wrapper
+- Create `src/services/orchestration/Orchestrator.ts` - Abstract base (from Gossip)
+- Create `src/services/orchestration/OrchestrationsRouter.ts` - Central hub
+- Keep existing SimplePool calls working (parallel systems)
+- **Commit:** "Add Orchestrator foundation (not active yet)"
+
+**Phase 3: FeedOrchestrator (3-4h, migrate Timeline)**
+- Create `src/services/orchestration/FeedOrchestrator.ts`
+- Migrate TimelineView to use FeedOrchestrator
+- Remove direct SimplePool calls from Timeline
+- Test: Timeline loads, scrolls, shows notes
+- **Commit:** "Migrate Timeline to FeedOrchestrator"
+
+**Phase 4: ReactionsOrchestrator (2-3h, migrate ISL)**
+- Create `src/services/orchestration/ReactionsOrchestrator.ts`
+- Migrate InteractionStatsService logic into Orchestrator
+- ISL uses ReactionsOrchestrator instead of direct subscription
+- Test: SNV ISL shows live updates
+- **Commit:** "Migrate ISL to ReactionsOrchestrator"
+
+**Phase 5: ThreadOrchestrator (2-3h, SNV replies)**
+- Create `src/services/orchestration/ThreadOrchestrator.ts`
+- Migrate SNV reply fetching to ThreadOrchestrator
+- Test: SNV shows replies, updates live
+- **Commit:** "Migrate SNV replies to ThreadOrchestrator"
+
+**Phase 6: ProfileOrchestrator (1-2h, centralize profiles)**
+- Create `src/services/orchestration/ProfileOrchestrator.ts`
+- Centralize all profile fetching (Timeline, SNV, ProfileView)
+- Cache profiles centrally (24h TTL in IndexedDB)
+- **Commit:** "Centralize profile fetching in ProfileOrchestrator"
+
+**Phase 7: Cleanup (1h)**
+- Remove old SimplePool direct calls
+- Remove InteractionStatsService (logic now in ReactionsOrchestrator)
+- Update all JSDoc comments
+- **Commit:** "Remove legacy direct SimplePool calls"
+
+**Total Estimate:** ~12-15 hours, 7 commits, always buildable
+
+---
+
+### Key Interfaces (To Be Created):
+
+```typescript
+// Orchestrator.ts (Abstract Base - from Gossip pattern)
+export abstract class Orchestrator {
+  public readonly name: string
+  protected router: OrchestrationsRouter
+
+  abstract onui(data: any): void
+  abstract onopen(relay: string): void
+  abstract onmessage(relay: string, event: Event): void
+  abstract onerror(relay: string, error: Error): void
+  abstract onclose(relay: string): void
+}
+
+// OrchestrationsRouter.ts
+export class OrchestrationsRouter {
+  private transport: NostrTransport
+  private orchestrators: Map<string, Orchestrator>
+
+  registerOrchestrator(orch: Orchestrator): void
+  subscribe(filter: Filter, orchName: string): void
+  distributeEvent(event: Event): void // Fan-out to all interested
+}
+
+// NostrTransport.ts
+export class NostrTransport {
+  private pool: SimplePool
+
+  subscribe(relays: string[], filter: Filter, callbacks): Sub
+  publish(relays: string[], event: Event): Promise<void>
+}
+```
+
+---
+
+### Real-Time Strategy (User Requirement):
+
+**Timeline (TV):** Static counts, no live updates
+- ISL: `fetchStats: false`
+- Cache: 60s TTL
+- No active subscriptions per note
+
+**Single Note View (SNV):** Live updates
+- ISL: `fetchStats: true`
+- ReactionsOrchestrator: Active subscription while SNV open
+- User sees likes/reposts in real-time
+
+**Future (DMs, Notifications):** Always live via DMOrchestrator/NotificationOrchestrator
+
+---
+
+### Performance Goals:
+
+**Before Orchestrator:**
+- Timeline: ~400 subscriptions (ISL per note)
+- SNV: 3 subscriptions (note, reactions, replies)
+- Profile: 1 subscription per view
+- **Total:** 400+ active subscriptions
+
+**After Orchestrator:**
+- FeedOrchestrator: 1 subscription (all notes)
+- ReactionsOrchestrator: 1 subscription (only if SNV open)
+- ThreadOrchestrator: 1 subscription (only if SNV open)
+- ProfileOrchestrator: 1 subscription (all profiles)
+- **Total:** ~4-10 subscriptions (depending on active views)
+
+**→ 95% reduction in relay load**
+
+---
+
+### Anti-Chaos Checklist (For Future Claude Sessions):
+
+Before coding any Nostr feature:
+1. ✅ Read "🏗️ ORCHESTRATOR ARCHITECTURE" in CLAUDE.md
+2. ✅ Check: Does Orchestrator for this exist? (`src/services/orchestration/`)
+3. ✅ If yes: Use it. If no: Ask user before creating new one.
+4. ✅ NEVER call SimplePool directly from Component
+5. ✅ Add JSDoc: `@orchestrator Name | @purpose What | @used-by Who`
+
+---
+
+## 🚧 PAUSED: Single Note View (SNV) - Started 2025-10-02
+
+**Status:** ISL working, but Orchestrator architecture takes priority
+**Resume:** After Orchestrator migration (Phase 4-5)
+
+**TODO (after migration):**
+- [ ] Fix ISL hover duplication (screenshot issue)
+- [ ] Match Jumble ISL display style (jumble.png)
+- [ ] Implement reply fetching via ThreadOrchestrator
 - [ ] Test & polish
 
+**Last State (development branch):**
+✅ ISL refactored - Stats-Fetching in component
+- fetchStats: boolean flag in ISLConfig
+- InteractionStatsService used internally
+- Timeline: fetchStats: false (no subscriptions)
+- SNV: fetchStats: true (live stats, Analytics button 📊)
+
+Build successful, ready for testing (but paused for architecture work)
