@@ -10,6 +10,7 @@ import { fetchNostrEvents } from '../../helpers/fetchNostrEvents';
 import { RelayConfig } from '../../services/RelayConfig';
 import { ContentProcessor, type QuotedReference } from '../../services/ContentProcessor';
 import { QuotedNoteRenderer } from '../../services/QuotedNoteRenderer';
+import { ThreadOrchestrator } from '../../services/orchestration/ThreadOrchestrator';
 import { nip19 } from 'nostr-tools';
 import type { Event as NostrEvent } from 'nostr-tools';
 import { renderMediaContent } from '../../helpers/renderMediaContent';
@@ -22,6 +23,7 @@ export class SingleNoteView {
   private relayConfig: RelayConfig;
   private contentProcessor: ContentProcessor;
   private quotedNoteRenderer: QuotedNoteRenderer;
+  private threadOrchestrator: ThreadOrchestrator;
 
   constructor(noteId: string) {
     this.noteId = noteId;
@@ -30,6 +32,7 @@ export class SingleNoteView {
     this.relayConfig = RelayConfig.getInstance();
     this.contentProcessor = ContentProcessor.getInstance();
     this.quotedNoteRenderer = QuotedNoteRenderer.getInstance();
+    this.threadOrchestrator = ThreadOrchestrator.getInstance();
 
     this.render();
   }
@@ -147,6 +150,7 @@ export class SingleNoteView {
       ${renderMediaContent(processedContent.media)}
       <div class="quoted-notes-container"></div>
       <div class="snv-note__isl-container"></div>
+      <div class="snv-note__replies-container"></div>
       <div class="snv-note__footer">
         <button class="snv-back-btn" onclick="history.back()">← Back to Timeline</button>
       </div>
@@ -180,6 +184,97 @@ export class SingleNoteView {
     }
 
     this.container.appendChild(noteElement);
+
+    // Fetch and render replies
+    this.loadReplies(event.id);
+  }
+
+  /**
+   * Load and render replies for a note
+   */
+  private async loadReplies(noteId: string): Promise<void> {
+    const repliesContainer = this.container.querySelector('.snv-note__replies-container');
+    if (!repliesContainer) return;
+
+    // Show loading state
+    repliesContainer.innerHTML = `
+      <div class="snv-replies__loading">
+        <div class="loading-spinner"></div>
+        <p>Loading replies...</p>
+      </div>
+    `;
+
+    try {
+      const replies = await this.threadOrchestrator.fetchReplies(noteId);
+
+      if (replies.length === 0) {
+        repliesContainer.innerHTML = `
+          <div class="snv-replies__empty">
+            <p>No replies yet</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Render replies
+      repliesContainer.innerHTML = `
+        <div class="snv-replies__header">
+          <h3>Replies (${replies.length})</h3>
+        </div>
+        <div class="snv-replies__list"></div>
+      `;
+
+      const repliesList = repliesContainer.querySelector('.snv-replies__list');
+      if (repliesList) {
+        replies.forEach(reply => {
+          const replyElement = this.createReplyElement(reply);
+          repliesList.appendChild(replyElement);
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load replies:', error);
+      repliesContainer.innerHTML = `
+        <div class="snv-replies__error">
+          <p>Failed to load replies</p>
+        </div>
+      `;
+    }
+  }
+
+  /**
+   * Create a reply element
+   */
+  private createReplyElement(reply: NostrEvent): HTMLElement {
+    const replyElement = document.createElement('div');
+    replyElement.className = 'snv-reply';
+    replyElement.dataset.eventId = reply.id;
+
+    // Create reply header
+    const replyHeader = new NoteHeader({
+      pubkey: reply.pubkey,
+      timestamp: reply.created_at,
+      size: 'small',
+      showVerification: false,
+      showTimestamp: true
+    });
+
+    // Process reply content
+    const processedContent = this.contentProcessor.processContent(reply.content);
+
+    // Build reply structure
+    replyElement.innerHTML = `
+      <div class="snv-reply__header-container"></div>
+      <div class="snv-reply__content">${processedContent.html}</div>
+      ${renderMediaContent(processedContent.media)}
+    `;
+
+    // Mount header
+    const headerContainer = replyElement.querySelector('.snv-reply__header-container');
+    if (headerContainer) {
+      headerContainer.appendChild(replyHeader.getElement());
+    }
+
+    return replyElement;
   }
 
   /**

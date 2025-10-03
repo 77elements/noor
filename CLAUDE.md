@@ -302,7 +302,7 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 ## 🏗️ ORCHESTRATOR ARCHITECTURE - Implementation Progress (2025-10-03)
 
 **Branch:** `orchestrator`
-**Status:** In Progress - Phase 4 Complete
+**Status:** In Progress - Phase 5 Complete
 **Goal:** Enterprise-ready Nostr event architecture before Write-Events/DMs/Notifications
 
 ---
@@ -340,19 +340,14 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 - ✅ Fixed extractLinks: remove trailing punctuation from URLs
 - **Tested:** ISL numbers accurate (matches Nostur, better than Jumble)
 
-**Phase 5: ThreadOrchestrator (2-3h, SNV replies) - NEXT**
-- Create `src/services/orchestration/ThreadOrchestrator.ts`
-- **Current State:** SNV exists (`src/components/views/SingleNoteView.ts`) but NO reply fetching yet
-- **Goal:** Fetch replies (kind:1 events with #e tag pointing to note)
-- **Implementation:**
-  1. ThreadOrchestrator.fetchReplies(noteId) → returns NostrEvent[]
-  2. Uses NostrTransport.fetch() with filter: `{ kinds: [1], '#e': [noteId] }`
-  3. Filters out non-replies (check e-tag marker 'reply' or is last e-tag)
-  4. Cache replies per note (5min TTL)
-  5. SNV calls ThreadOrchestrator.fetchReplies() in render()
-- **Logging:** Silent (like ReactionsOrchestrator)
-- Test: SNV shows replies below note
-- **Commit:** "Migrate SNV replies to ThreadOrchestrator"
+**Phase 5: ThreadOrchestrator ✅ COMPLETED (Commit: TBD)**
+- ✅ Created `src/services/orchestration/ThreadOrchestrator.ts`
+- ✅ Fetches replies (kind:1 with #e tag, filters non-replies)
+- ✅ Cache: 5min TTL
+- ✅ Integrated into SingleNoteView.ts
+- ✅ Displays "Replies (X)" header + reply list below note
+- ✅ Each reply uses NoteHeader component (consistency)
+- **Tested:** SNV shows replies (styling pending, functionality works)
 
 **Phase 6: ProfileOrchestrator (1-2h, centralize profiles)**
 - Create `src/services/orchestration/ProfileOrchestrator.ts`
