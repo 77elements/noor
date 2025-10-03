@@ -129,32 +129,65 @@ Components → Orchestrators → Router → Transport → Relays
 
 **Absolute Rules:**
 - ❌ Components NEVER call SimplePool directly
+- ❌ NEVER import SimplePool in any Component
 - ✅ One subscription per type in Router, distributed to Orchestrators
 - ✅ All Orchestrators extend `Orchestrator` base class (like Gossip)
+- ✅ Before creating new Orchestrator: Ask user first
 
 **File Structure:**
 ```
 src/services/
 ├── EventBus.ts                      ← UI events (user:login, etc)
-├── transport/NostrTransport.ts      ← SimplePool wrapper
+├── transport/NostrTransport.ts      ← SimplePool wrapper (ONLY place to use SimplePool)
 └── orchestration/
     ├── Orchestrator.ts              ← Abstract base
     ├── OrchestrationsRouter.ts      ← Central hub
-    ├── FeedOrchestrator.ts
-    ├── ReactionsOrchestrator.ts
-    ├── ThreadOrchestrator.ts
-    └── ProfileOrchestrator.ts
+    ├── FeedOrchestrator.ts          ← Timeline feed (kind:1, kind:6)
+    ├── ReactionsOrchestrator.ts     ← ISL stats (kind:7, kind:6, kind:9735)
+    ├── ThreadOrchestrator.ts        ← SNV replies (kind:1 with #e tag)
+    └── ProfileOrchestrator.ts       ← User profiles (kind:0)
 ```
 
+**Existing Orchestrators (Use these first!):**
+1. **FeedOrchestrator** - Timeline feed loading (initial, load more, polling)
+   - Used by: TimelineUI
+   - Methods: `loadInitialFeed()`, `loadMoreFeed()`, `startPolling()`
+
+2. **ReactionsOrchestrator** - Interaction stats (reactions, reposts, zaps, replies)
+   - Used by: InteractionStatusLine (wrapper: InteractionStatsService)
+   - Methods: `getStats()`, `subscribeToStats()`
+
+3. **ThreadOrchestrator** - Reply fetching for SNV
+   - Used by: SingleNoteView
+   - Methods: `fetchReplies()`, `clearCache()`
+
+4. **ProfileOrchestrator** - User profile metadata
+   - Used by: UserProfileService (wrapper)
+   - Methods: `fetchProfile()`, `fetchMultipleProfiles()`
+
 **Cache TTLs:**
-- Notes (kind:1): Permanent
-- Profiles (kind:0): 24h
-- Reactions (kind:7): 60s or live if SNV open
+- Notes (kind:1): Permanent (in FeedOrchestrator)
+- Profiles (kind:0): 7 days (in UserProfileService, fetched via ProfileOrchestrator)
+- Reactions (kind:7): 5min (in ReactionsOrchestrator)
+- Replies (kind:1): 5min (in ThreadOrchestrator)
+
+**Logging Philosophy:**
+- **NostrTransport**: Silent (only errors)
+- **Orchestrators**: Minimal, user-friendly (e.g., "🔔 3 new notes")
+- **Wrapper Services**: Silent (delegated to Orchestrators)
+- **Goal**: Clean system log for end users
 
 **JSDoc Required:**
 ```typescript
 /** @orchestrator Name | @purpose What | @used-by Who */
 ```
+
+**Anti-Chaos Checklist (Before any Nostr feature):**
+1. ✅ Which Orchestrator handles this? (Feed, Reactions, Thread, Profile)
+2. ✅ Does it already exist? Check `src/services/orchestration/`
+3. ✅ If yes: Use existing Orchestrator. If no: Ask user before creating new one
+4. ✅ NEVER call SimplePool directly from Component
+5. ✅ Use NostrTransport if you need relay communication
 
 ## ABSOLUTE RULE - NO EXCEPTIONS
 
@@ -299,178 +332,58 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 # 📝 DEVELOPMENT NOTES - CLAUDE MAY EDIT FREELY
 # ═══════════════════════════════════════════════════════════════
 
-## 🏗️ ORCHESTRATOR ARCHITECTURE - Implementation Progress (2025-10-03)
+## Current Development Status
 
-**Branch:** `orchestrator`
-**Status:** ✅ MIGRATION COMPLETE - All Phases Done
-**Goal:** Enterprise-ready Nostr event architecture before Write-Events/DMs/Notifications
-
----
-
-### Migration Strategy (Small Commits, Always Buildable):
-
-**Phase 1: EventBus ✅ COMPLETED (Commit: 6cffe97)**
-- ✅ Created `src/services/EventBus.ts` - Simple pub/sub for UI events
-- ✅ Events: `user:login`, `user:logout`, `view:change`, `note:created`
-- ✅ Replaced `window.location.reload()` in AuthComponent
-- ✅ App.ts listens to `user:login` → recreates Timeline
-- ✅ Integrated with DebugLogger for Global System Log visibility
-- **Tested:** Login flow works without page reload
-
-**Phase 2: Foundation ✅ COMPLETED (Commit: 281c0f6)**
-- ✅ Created `src/services/transport/NostrTransport.ts` - SimplePool wrapper
-- ✅ Created `src/services/orchestration/Orchestrator.ts` - Abstract base (from Gossip)
-- ✅ Created `src/services/orchestration/OrchestrationsRouter.ts` - Central hub
-- ✅ Parallel to existing SimplePool calls (no breaking changes)
-- ✅ All components integrated with DebugLogger
-- **Tested:** Build successful, foundation ready for migration
-
-**Phase 3: FeedOrchestrator ✅ COMPLETED (Commit: e37d1b9)**
-- ✅ Created `src/services/orchestration/FeedOrchestrator.ts`
-- ✅ Migrated TimelineUI to use FeedOrchestrator (replaces TimelineLoader + LoadMore)
-- ✅ Removed direct SimplePool calls from Timeline
-- ✅ Architecture: TimelineUI → FeedOrchestrator → NostrTransport → SimplePool
-- **Tested:** Timeline loads, infinite scroll works, refresh works
-
-**Phase 4: ReactionsOrchestrator ✅ COMPLETED (Commit: c701c58)**
-- ✅ Created `src/services/orchestration/ReactionsOrchestrator.ts`
-- ✅ Migrated InteractionStatsService to use ReactionsOrchestrator (wrapper)
-- ✅ ISL uses ReactionsOrchestrator for all stats (reactions, reposts, replies, zaps)
-- ✅ Fixed Zap counting: parse bolt11 invoices for sats amounts (was counting events)
-- ✅ Fixed extractLinks: remove trailing punctuation from URLs
-- **Tested:** ISL numbers accurate (matches Nostur, better than Jumble)
-
-**Phase 5: ThreadOrchestrator ✅ COMPLETED (Commit: f24a4e1)**
-- ✅ Created `src/services/orchestration/ThreadOrchestrator.ts`
-- ✅ Fetches replies (kind:1 with #e tag, filters non-replies)
-- ✅ Cache: 5min TTL
-- ✅ Integrated into SingleNoteView.ts
-- ✅ Displays "Replies (X)" header + reply list below note
-- ✅ Each reply uses NoteHeader component (consistency)
-- **Tested:** SNV shows replies (styling pending, functionality works)
-
-**Phase 6: ProfileOrchestrator ✅ COMPLETED (Commit: 5615ba6)**
-- ✅ Created `src/services/orchestration/ProfileOrchestrator.ts`
-- ✅ Migrated UserProfileService to use ProfileOrchestrator (was using UserService directly)
-- ✅ Implements fetchProfile() and fetchMultipleProfiles() via NostrTransport
-- ✅ Architecture: NoteHeader → UserProfileService → ProfileOrchestrator → Transport
-- ✅ Cache: 7 days TTL (memory + localStorage) - managed by UserProfileService
-- ✅ Used by: NoteHeader (Timeline), NoteHeader (SNV), NoteHeader (Replies)
-- ✅ Profile fetched once per session, then served from cache (Timeline → SNV = 0 additional fetches)
-- **Tested:** Build successful, profiles load in Timeline/SNV from cache
-
-**Phase 7: Cleanup ✅ COMPLETED (Commits: ee19d45, 43517d9)**
-- ✅ Removed TimelineLoader.ts (no imports, replaced by FeedOrchestrator)
-- ✅ Removed LoadMore.ts (no imports, replaced by FeedOrchestrator)
-- ✅ Removed EventFetchService.ts (only used by TimelineLoader/LoadMore)
-- ✅ All Orchestrators have JSDoc `@orchestrator` tags (already present)
-- ✅ Kept as wrappers (backwards compatible):
-  - InteractionStatsService → ReactionsOrchestrator
-  - UserProfileService → ProfileOrchestrator
-- **Tested:** Build successful, Timeline works (load, scroll, polling)
-
-**Files still using SimplePool directly:**
-- QuoteNoteFetcher.ts (quote notes - low priority, keep for now)
-
-**Total Time:** ~10 hours, 9 commits, always buildable ✅
+**Branch:** `orchestrator` (merged to main: pending)
+**Last Migration:** Orchestrator Architecture (completed 2025-10-03)
+**Architecture:** Components → Orchestrators → Router → Transport → Relays ✅
 
 ---
 
-### Migration Results:
+## Quick Reference: When to Use Which Orchestrator
 
-**Architecture Achieved:**
-```
-Components → Orchestrators → Router → Transport → Relays
-     ✓           ✓              ✓          ✓         ✓
+| Feature Needed | Use This Orchestrator | Methods |
+|---------------|----------------------|---------|
+| Timeline feed loading | FeedOrchestrator | `loadInitialFeed()`, `loadMoreFeed()`, `startPolling()` |
+| Like/Repost/Zap counts | ReactionsOrchestrator | `getStats()`, `subscribeToStats()` (via InteractionStatsService) |
+| SNV replies | ThreadOrchestrator | `fetchReplies()`, `clearCache()` |
+| User profile/avatar | ProfileOrchestrator | `fetchProfile()`, `fetchMultipleProfiles()` (via UserProfileService) |
+
+**If your feature doesn't fit above:** Ask user before creating new Orchestrator!
+
+---
+
+## Common Pitfalls to Avoid
+
+**❌ NEVER DO THIS:**
+```typescript
+import { SimplePool } from 'nostr-tools'; // ← WRONG! Only NostrTransport uses SimplePool
+const pool = new SimplePool(); // ← WRONG!
 ```
 
-**Orchestrators Created:**
-- FeedOrchestrator (Timeline feed management)
-- ReactionsOrchestrator (ISL stats - reactions, reposts, zaps, replies)
-- ThreadOrchestrator (SNV reply fetching)
-- ProfileOrchestrator (User profile metadata)
+**✅ DO THIS INSTEAD:**
+```typescript
+// In Component:
+const orchestrator = FeedOrchestrator.getInstance();
+const result = await orchestrator.loadInitialFeed({...});
 
-**Services Removed:**
-- TimelineLoader.ts ❌
-- LoadMore.ts ❌
-- EventFetchService.ts ❌
+// OR if you absolutely need relay fetch (rare):
+const transport = NostrTransport.getInstance();
+const events = await transport.fetch(relays, filters);
+```
 
-**Services Kept as Wrappers:**
-- InteractionStatsService → ReactionsOrchestrator
-- UserProfileService → ProfileOrchestrator
-
-**Performance Impact:**
-- Subscriptions: 400+ → ~4-10 (95% reduction) ✅
-- Bundle Size: Unchanged (109.46 kB)
-- Cache Hit Rate: High (profiles, reactions cached)
-- Real-time Updates: Working (SNV ISL, SNV replies)
-
-**Ready for:** Write-Events, DMs, Notifications
+**❌ DON'T cache in Transport layer** → ✅ Cache in Orchestrator
+**❌ DON'T log everything** → ✅ Log minimal, user-friendly messages (see "Logging Philosophy" in Core Specs)
+**❌ DON'T break existing patterns** → ✅ Ask user if unsure
 
 ---
 
-### Real-Time Strategy (User Requirement):
+## When Starting New Feature
 
-**Timeline (TV):** Static counts, no live updates
-- ISL: `fetchStats: false`
-- Cache: 60s TTL
-- No active subscriptions per note
+1. **Read:** "🏗️ ORCHESTRATOR ARCHITECTURE" in Core Specs section above
+2. **Check:** Does Orchestrator for this exist? See table above
+3. **Ask:** User before creating new Orchestrator or major architecture change
+4. **Build:** `npm run build` MUST succeed before commit
+5. **Test:** User tests, gives approval ("ok", "commit"), THEN commit
 
-**Single Note View (SNV):** Live updates
-- ISL: `fetchStats: true`
-- ReactionsOrchestrator: Active subscription while SNV open
-- User sees likes/reposts in real-time
-
-**Future (DMs, Notifications):** Always live via DMOrchestrator/NotificationOrchestrator
-
----
-
-### Performance Goals:
-
-**Before Orchestrator:**
-- Timeline: ~400 subscriptions (ISL per note)
-- SNV: 3 subscriptions (note, reactions, replies)
-- Profile: 1 subscription per view
-- **Total:** 400+ active subscriptions
-
-**After Orchestrator:**
-- FeedOrchestrator: 1 subscription (all notes)
-- ReactionsOrchestrator: 1 subscription (only if SNV open)
-- ThreadOrchestrator: 1 subscription (only if SNV open)
-- ProfileOrchestrator: 1 subscription (all profiles)
-- **Total:** ~4-10 subscriptions (depending on active views)
-
-**→ 95% reduction in relay load**
-
----
-
-### Anti-Chaos Checklist (For Future Claude Sessions):
-
-Before coding any Nostr feature:
-1. ✅ Read "🏗️ ORCHESTRATOR ARCHITECTURE" in CLAUDE.md
-2. ✅ Check: Does Orchestrator for this exist? (`src/services/orchestration/`)
-3. ✅ If yes: Use it. If no: Ask user before creating new one.
-4. ✅ NEVER call SimplePool directly from Component
-5. ✅ Add JSDoc: `@orchestrator Name | @purpose What | @used-by Who`
-
-### Key Learnings from Phase 1-4:
-
-**Logging Philosophy:**
-- Transport layer (NostrTransport): Silent (only errors)
-- Orchestrators: Minimal, user-friendly (e.g., "🔔 3 new notes")
-- Services: Silent (delegated to Orchestrators)
-- Goal: Clean system log for end users
-
-**Architecture Patterns:**
-- Orchestrators extend base class with 5 methods: onui, onopen, onmessage, onerror, onclose
-- All use NostrTransport.getInstance() (singleton)
-- All integrate DebugLogger.getInstance()
-- Cache in Orchestrator, not in Transport
-- Wrapper pattern for backwards compatibility (InteractionStatsService → ReactionsOrchestrator)
-
-**Migration Strategy:**
-- Always keep old code working (parallel systems)
-- Migrate component to use Orchestrator
-- Old service becomes thin wrapper (backwards compatible)
-- Test thoroughly before removing old code
-- Small commits, always buildable
+**Remember Chaos Mode trigger:** If you need 10+ rounds for simple bug, STOP. Re-read CLAUDE.md.
