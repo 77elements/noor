@@ -302,7 +302,7 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 ## 🏗️ ORCHESTRATOR ARCHITECTURE - Implementation Progress (2025-10-03)
 
 **Branch:** `orchestrator`
-**Status:** In Progress - Phase 5 Complete
+**Status:** In Progress - Phase 6 Complete
 **Goal:** Enterprise-ready Nostr event architecture before Write-Events/DMs/Notifications
 
 ---
@@ -349,18 +349,15 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 - ✅ Each reply uses NoteHeader component (consistency)
 - **Tested:** SNV shows replies (styling pending, functionality works)
 
-**Phase 6: ProfileOrchestrator (1-2h, centralize profiles)**
-- Create `src/services/orchestration/ProfileOrchestrator.ts`
-- **Current State:** UserProfileService exists (`src/services/UserProfileService.ts`) - direct SimplePool
-- **Goal:** Centralize all profile fetching (kind:0 metadata)
-- **Implementation:**
-  1. ProfileOrchestrator.getProfile(pubkey) → returns Profile
-  2. Uses NostrTransport.fetch() with filter: `{ authors: [pubkey], kinds: [0], limit: 1 }`
-  3. Cache profiles (24h TTL in IndexedDB - use existing CacheManager)
-  4. UserProfileService becomes wrapper (like InteractionStatsService)
-- **Used by:** NoteHeader, UserStatus, ProfileView
-- **Logging:** Silent
-- **Commit:** "Centralize profile fetching in ProfileOrchestrator"
+**Phase 6: ProfileOrchestrator ✅ COMPLETED**
+- ✅ Created `src/services/orchestration/ProfileOrchestrator.ts`
+- ✅ Migrated UserProfileService to use ProfileOrchestrator (was using UserService directly)
+- ✅ Implements fetchProfile() and fetchMultipleProfiles() via NostrTransport
+- ✅ Architecture: NoteHeader → UserProfileService → ProfileOrchestrator → Transport
+- ✅ Cache: 7 days TTL (memory + localStorage) - managed by UserProfileService
+- ✅ Used by: NoteHeader (Timeline), NoteHeader (SNV), NoteHeader (Replies)
+- ✅ Profile fetched once per session, then served from cache (Timeline → SNV = 0 additional fetches)
+- **Tested:** Build successful, profiles load in Timeline/SNV from cache
 
 **Phase 7: Cleanup (1h)**
 - **Files still using SimplePool directly:**
