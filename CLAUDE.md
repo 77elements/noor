@@ -386,42 +386,6 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 
 ---
 
-### Key Interfaces (To Be Created):
-
-```typescript
-// Orchestrator.ts (Abstract Base - from Gossip pattern)
-export abstract class Orchestrator {
-  public readonly name: string
-  protected router: OrchestrationsRouter
-
-  abstract onui(data: any): void
-  abstract onopen(relay: string): void
-  abstract onmessage(relay: string, event: Event): void
-  abstract onerror(relay: string, error: Error): void
-  abstract onclose(relay: string): void
-}
-
-// OrchestrationsRouter.ts
-export class OrchestrationsRouter {
-  private transport: NostrTransport
-  private orchestrators: Map<string, Orchestrator>
-
-  registerOrchestrator(orch: Orchestrator): void
-  subscribe(filter: Filter, orchName: string): void
-  distributeEvent(event: Event): void // Fan-out to all interested
-}
-
-// NostrTransport.ts
-export class NostrTransport {
-  private pool: SimplePool
-
-  subscribe(relays: string[], filter: Filter, callbacks): Sub
-  publish(relays: string[], event: Event): Promise<void>
-}
-```
-
----
-
 ### Real-Time Strategy (User Requirement):
 
 **Timeline (TV):** Static counts, no live updates
@@ -487,25 +451,3 @@ Before coding any Nostr feature:
 - Old service becomes thin wrapper (backwards compatible)
 - Test thoroughly before removing old code
 - Small commits, always buildable
-
----
-
-## 🚧 PAUSED: Single Note View (SNV) - Started 2025-10-02
-
-**Status:** ISL working, but Orchestrator architecture takes priority
-**Resume:** After Orchestrator migration (Phase 4-5)
-
-**TODO (after migration):**
-- [ ] Fix ISL hover duplication (screenshot issue)
-- [ ] Match Jumble ISL display style (jumble.png)
-- [ ] Implement reply fetching via ThreadOrchestrator
-- [ ] Test & polish
-
-**Last State (development branch):**
-✅ ISL refactored - Stats-Fetching in component
-- fetchStats: boolean flag in ISLConfig
-- InteractionStatsService used internally
-- Timeline: fetchStats: false (no subscriptions)
-- SNV: fetchStats: true (live stats, Analytics button 📊)
-
-Build successful, ready for testing (but paused for architecture work)
