@@ -340,23 +340,47 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 - ✅ Fixed extractLinks: remove trailing punctuation from URLs
 - **Tested:** ISL numbers accurate (matches Nostur, better than Jumble)
 
-**Phase 5: ThreadOrchestrator (2-3h, SNV replies)**
+**Phase 5: ThreadOrchestrator (2-3h, SNV replies) - NEXT**
 - Create `src/services/orchestration/ThreadOrchestrator.ts`
-- Migrate SNV reply fetching to ThreadOrchestrator
-- Test: SNV shows replies, updates live
+- **Current State:** SNV exists (`src/components/views/SingleNoteView.ts`) but NO reply fetching yet
+- **Goal:** Fetch replies (kind:1 events with #e tag pointing to note)
+- **Implementation:**
+  1. ThreadOrchestrator.fetchReplies(noteId) → returns NostrEvent[]
+  2. Uses NostrTransport.fetch() with filter: `{ kinds: [1], '#e': [noteId] }`
+  3. Filters out non-replies (check e-tag marker 'reply' or is last e-tag)
+  4. Cache replies per note (5min TTL)
+  5. SNV calls ThreadOrchestrator.fetchReplies() in render()
+- **Logging:** Silent (like ReactionsOrchestrator)
+- Test: SNV shows replies below note
 - **Commit:** "Migrate SNV replies to ThreadOrchestrator"
 
 **Phase 6: ProfileOrchestrator (1-2h, centralize profiles)**
 - Create `src/services/orchestration/ProfileOrchestrator.ts`
-- Centralize all profile fetching (Timeline, SNV, ProfileView)
-- Cache profiles centrally (24h TTL in IndexedDB)
+- **Current State:** UserProfileService exists (`src/services/UserProfileService.ts`) - direct SimplePool
+- **Goal:** Centralize all profile fetching (kind:0 metadata)
+- **Implementation:**
+  1. ProfileOrchestrator.getProfile(pubkey) → returns Profile
+  2. Uses NostrTransport.fetch() with filter: `{ authors: [pubkey], kinds: [0], limit: 1 }`
+  3. Cache profiles (24h TTL in IndexedDB - use existing CacheManager)
+  4. UserProfileService becomes wrapper (like InteractionStatsService)
+- **Used by:** NoteHeader, UserStatus, ProfileView
+- **Logging:** Silent
 - **Commit:** "Centralize profile fetching in ProfileOrchestrator"
 
 **Phase 7: Cleanup (1h)**
-- Remove old SimplePool direct calls
-- Remove InteractionStatsService (logic now in ReactionsOrchestrator)
-- Update all JSDoc comments
-- **Commit:** "Remove legacy direct SimplePool calls"
+- **Files still using SimplePool directly:**
+  - QuoteNoteFetcher.ts (quote notes - keep for now, low priority)
+  - EventFetchService.ts (used by old services - can be removed)
+  - TimelineLoader.ts, LoadMore.ts (replaced by FeedOrchestrator - can be removed)
+- **Keep as wrappers (backwards compatible):**
+  - InteractionStatsService → ReactionsOrchestrator (keep)
+  - UserProfileService → ProfileOrchestrator (keep)
+- **Actions:**
+  1. Remove TimelineLoader.ts, LoadMore.ts (unused after Phase 3)
+  2. Remove EventFetchService.ts if no other dependencies
+  3. Add JSDoc `@orchestrator` tags to all Orchestrators
+  4. Update README.md with new architecture diagram
+- **Commit:** "Remove legacy Timeline services (Phase 7 cleanup)"
 
 **Total Estimate:** ~12-15 hours, 7 commits, always buildable
 
@@ -441,6 +465,28 @@ Before coding any Nostr feature:
 3. ✅ If yes: Use it. If no: Ask user before creating new one.
 4. ✅ NEVER call SimplePool directly from Component
 5. ✅ Add JSDoc: `@orchestrator Name | @purpose What | @used-by Who`
+
+### Key Learnings from Phase 1-4:
+
+**Logging Philosophy:**
+- Transport layer (NostrTransport): Silent (only errors)
+- Orchestrators: Minimal, user-friendly (e.g., "🔔 3 new notes")
+- Services: Silent (delegated to Orchestrators)
+- Goal: Clean system log for end users
+
+**Architecture Patterns:**
+- Orchestrators extend base class with 5 methods: onui, onopen, onmessage, onerror, onclose
+- All use NostrTransport.getInstance() (singleton)
+- All integrate DebugLogger.getInstance()
+- Cache in Orchestrator, not in Transport
+- Wrapper pattern for backwards compatibility (InteractionStatsService → ReactionsOrchestrator)
+
+**Migration Strategy:**
+- Always keep old code working (parallel systems)
+- Migrate component to use Orchestrator
+- Old service becomes thin wrapper (backwards compatible)
+- Test thoroughly before removing old code
+- Small commits, always buildable
 
 ---
 
