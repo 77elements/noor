@@ -23,7 +23,11 @@ export function extractLinks(text: string): LinkPreview[] {
   const urlRegex = /https?:\/\/[^\s]+/gi;
   const urls = text.match(urlRegex) || [];
 
-  urls.forEach(url => {
+  urls.forEach(rawUrl => {
+    // Clean trailing characters that are often part of markdown/html syntax
+    // Remove trailing: > ) , . ! ? ; :
+    let url = rawUrl.replace(/[>),.\!?;:]+$/, '');
+
     try {
       const parsed = new URL(url);
       links.push({
@@ -31,7 +35,7 @@ export function extractLinks(text: string): LinkPreview[] {
         domain: parsed.hostname
       });
     } catch (error) {
-      console.warn('Invalid URL:', url);
+      console.warn('Invalid URL:', rawUrl);
     }
   });
 
