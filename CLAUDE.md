@@ -340,7 +340,7 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 - ✅ Fixed extractLinks: remove trailing punctuation from URLs
 - **Tested:** ISL numbers accurate (matches Nostur, better than Jumble)
 
-**Phase 5: ThreadOrchestrator ✅ COMPLETED (Commit: TBD)**
+**Phase 5: ThreadOrchestrator ✅ COMPLETED (Commit: f24a4e1)**
 - ✅ Created `src/services/orchestration/ThreadOrchestrator.ts`
 - ✅ Fetches replies (kind:1 with #e tag, filters non-replies)
 - ✅ Cache: 5min TTL
