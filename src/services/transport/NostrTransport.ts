@@ -45,10 +45,8 @@ export class NostrTransport {
     filters: NostrFilter[],
     callbacks: SubscriptionCallbacks
   ): Sub {
-    this.debugLogger.info(
-      'NostrTransport',
-      `Creating subscription on ${relays.length} relays with ${filters.length} filter(s)`
-    );
+    // Only log subscriptions in verbose mode
+    // this.debugLogger.info('NostrTransport', `Creating subscription on ${relays.length} relays`);
 
     const sub = this.pool.sub(relays, filters);
 
@@ -74,10 +72,8 @@ export class NostrTransport {
     filters: NostrFilter[],
     timeout: number = 5000
   ): Promise<NostrEvent[]> {
-    this.debugLogger.info(
-      'NostrTransport',
-      `Fetching events from ${relays.length} relays with ${filters.length} filter(s)`
-    );
+    // Only log fetches in verbose mode (too noisy for system log)
+    // this.debugLogger.info('NostrTransport', `Fetching from ${relays.length} relays`);
 
     try {
       const events = await Promise.race([
@@ -87,7 +83,10 @@ export class NostrTransport {
         )
       ]);
 
-      this.debugLogger.info('NostrTransport', `Fetched ${events.length} events`);
+      // Only log if significant amount of events
+      // if (events.length > 0) {
+      //   this.debugLogger.info('NostrTransport', `✓ ${events.length} events`);
+      // }
       return events;
     } catch (error) {
       this.debugLogger.error('NostrTransport', `Fetch error: ${error}`);

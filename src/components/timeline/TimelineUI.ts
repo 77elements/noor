@@ -5,9 +5,8 @@
  */
 
 import type { Event as NostrEvent } from 'nostr-tools';
-import { FeedOrchestrator } from '../../services/orchestration/FeedOrchestrator';
+import { FeedOrchestrator, type NewNotesInfo } from '../../services/orchestration/FeedOrchestrator';
 import { UserService } from '../../services/UserService';
-import { NewNotesDetector, type NewNotesInfo } from '../../services/NewNotesDetector';
 import { NoteHeader } from '../ui/NoteHeader';
 import { NoteUI } from '../ui/NoteUI';
 import { InfiniteScroll } from '../ui/InfiniteScroll';
@@ -18,7 +17,6 @@ export class TimelineUI {
   private element: HTMLElement;
   private feedOrchestrator: FeedOrchestrator;
   private userService: UserService;
-  private newNotesDetector: NewNotesDetector;
   private events: NostrEvent[] = [];
   private loading = false;
   private hasMore = true;
@@ -34,7 +32,6 @@ export class TimelineUI {
     this.userPubkey = userPubkey;
     this.feedOrchestrator = FeedOrchestrator.getInstance();
     this.userService = UserService.getInstance();
-    this.newNotesDetector = NewNotesDetector.getInstance();
     this.element = this.createElement();
     this.infiniteScroll = new InfiniteScroll(() => this.handleLoadMore());
     this.setupInfiniteScroll();
@@ -193,8 +190,8 @@ export class TimelineUI {
     // Get timestamp of newest note
     const newestTimestamp = Math.max(...this.events.map(e => e.created_at));
 
-    // Start polling with callback
-    this.newNotesDetector.startPolling(
+    // Start polling via FeedOrchestrator
+    this.feedOrchestrator.startPolling(
       this.followingPubkeys,
       newestTimestamp,
       (info: NewNotesInfo) => this.handleNewNotesDetected(info),
@@ -485,7 +482,7 @@ export class TimelineUI {
    */
   private async handleRefresh(): Promise<void> {
     // Stop polling before refresh
-    this.newNotesDetector.stopPolling();
+    this.feedOrchestrator.stopPolling();
 
     this.events = [];
     this.hasMore = true;
@@ -605,7 +602,7 @@ export class TimelineUI {
    * Pause background tasks (polling, subscriptions) when navigating away
    */
   public pause(): void {
-    this.newNotesDetector.stopPolling();
+    this.feedOrchestrator.stopPolling();
 
     if (this.intersectionObserver) {
       this.intersectionObserver.disconnect();
@@ -619,7 +616,7 @@ export class TimelineUI {
     // Restart polling if we have events
     if (this.events.length > 0) {
       const newestTimestamp = Math.max(...this.events.map(e => e.created_at));
-      this.newNotesDetector.startPolling(
+      this.feedOrchestrator.startPolling(
         this.followingPubkeys,
         newestTimestamp,
         (info: NewNotesInfo) => this.handleNewNotesDetected(info),
@@ -637,7 +634,7 @@ export class TimelineUI {
    */
   public destroy(): void {
     // Stop polling
-    this.newNotesDetector.stopPolling();
+    this.feedOrchestrator.stopPolling();
 
     if (this.intersectionObserver) {
       this.intersectionObserver.disconnect();

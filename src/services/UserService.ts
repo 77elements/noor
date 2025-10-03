@@ -1,23 +1,24 @@
 /**
  * User Service
  * Handles user-related operations like following lists and user metadata
- * Now uses universal fetch and subscribe helpers
+ * Uses NostrTransport for all relay communication
  */
 
-import { SimplePool } from 'nostr-tools/pool';
 import type { Event as NostrEvent } from 'nostr-tools';
+import { NostrTransport } from './transport/NostrTransport';
 import { RelayConfig } from './RelayConfig';
-import { fetchNostrEvents } from '../helpers/fetchNostrEvents';
-import { subscribeNostrEvents } from '../helpers/subscribeNostrEvents';
+import { DebugLogger } from '../components/debug/DebugLogger';
 
 export class UserService {
   private static instance: UserService;
+  private transport: NostrTransport;
   private relayConfig: RelayConfig;
-  private pool: SimplePool;
+  private debugLogger: DebugLogger;
 
   private constructor() {
+    this.transport = NostrTransport.getInstance();
     this.relayConfig = RelayConfig.getInstance();
-    this.pool = new SimplePool();
+    this.debugLogger = DebugLogger.getInstance();
   }
 
   public static getInstance(): UserService {
@@ -29,60 +30,77 @@ export class UserService {
 
   /**
    * Get user's following list from kind:3 events
-   * Now uses universal fetchNostrEvents helper
+   * Uses NostrTransport for fetching
    */
   public async getUserFollowing(pubkey: string): Promise<string[]> {
-    const relays = this.relayConfig.getReadRelays();
+    const relays = this.transport.getReadRelays();
 
-    console.log(`👥 USER SERVICE: Fetching follow list for ${pubkey.slice(0, 8)}...`);
+    // Silent operation - only log errors
+    // this.debugLogger.info('UserService', `Fetching follow list for ${pubkey.slice(0, 8)}`);
 
     try {
-      const result = await fetchNostrEvents({
+      const events = await this.transport.fetch(
         relays,
-        authors: [pubkey],
-        kinds: [3], // Follow list
-        limit: 1,
-        pool: this.pool
-      });
+        [{
+          authors: [pubkey],
+          kinds: [3], // Follow list
+          limit: 1
+        }]
+      );
 
-      if (result.events.length === 0) {
-        console.log('No follow list found, using fallback users');
+      if (events.length === 0) {
+        this.debugLogger.warn('UserService', 'No follow list found, using fallback');
         return this.relayConfig.getFallbackFollowing();
       }
 
-      const followEvent = result.events[0];
+      const followEvent = events[0];
       const followingPubkeys = followEvent.tags
         .filter(tag => tag[0] === 'p')
         .map(tag => tag[1])
         .filter(Boolean);
 
-      console.log(`👥 USER SERVICE: Following ${followingPubkeys.length} users`);
+      // this.debugLogger.info('UserService', `Following ${followingPubkeys.length} users`);
       return followingPubkeys;
     } catch (error) {
-      console.error('❌ Error fetching follow list:', error);
+      this.debugLogger.error('UserService', `Error fetching follow list: ${error}`);
       return this.relayConfig.getFallbackFollowing();
     }
   }
 
   /**
    * Subscribe to user metadata updates
-   * Now uses universal subscribeNostrEvents helper
+   * Uses NostrTransport for subscriptions
    */
   public subscribe(
     subscriptionId: string,
     filter: { authors?: string[]; kinds?: number[]; ids?: string[] },
     callback: (event: NostrEvent) => void
   ): () => void {
-    const relays = this.relayConfig.getReadRelays();
+    const relays = this.transport.getReadRelays();
 
-    return subscribeNostrEvents({
-      relays,
+    // Silent operation
+    // this.debugLogger.info('UserService', `Creating subscription: ${subscriptionId}`);
+
+    const filters = [{
       authors: filter.authors,
       kinds: filter.kinds,
-      ids: filter.ids,
-      onEvent: callback,
-      pool: this.pool,
-      autoCloseAfterMs: 10000
+      ids: filter.ids
+    }];
+
+    const sub = this.transport.subscribe(relays, filters, {
+      onEvent: callback
     });
+
+    // Auto-close after 10 seconds
+    setTimeout(() => {
+      sub.unsub();
+      // this.debugLogger.info('UserService', `Subscription ${subscriptionId} auto-closed`);
+    }, 10000);
+
+    // Return unsubscribe function
+    return () => {
+      sub.unsub();
+      // this.debugLogger.info('UserService', `Subscription ${subscriptionId} closed`);
+    };
   }
 }

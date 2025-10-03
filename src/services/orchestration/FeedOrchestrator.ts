@@ -32,7 +32,13 @@ export interface FeedLoadResult {
   hasMore: boolean;
 }
 
+export interface NewNotesInfo {
+  count: number;
+  authorPubkeys: string[]; // Unique pubkeys of new note authors (max 4, newest first)
+}
+
 type FeedCallback = (events: NostrEvent[]) => void;
+type NewNotesCallback = (info: NewNotesInfo) => void;
 
 export class FeedOrchestrator extends Orchestrator {
   private static instance: FeedOrchestrator;
@@ -46,6 +52,15 @@ export class FeedOrchestrator extends Orchestrator {
 
   /** Registered callbacks for event updates */
   private callbacks: Set<FeedCallback> = new Set();
+
+  /** New notes polling */
+  private pollingInterval: number = 60000; // 60 seconds
+  private pollingIntervalId: number | null = null;
+  private lastCheckedTimestamp: number = 0;
+  private newNotesCallback: NewNotesCallback | null = null;
+  private pollingFollowingPubkeys: string[] = [];
+  private pollingIncludeReplies: boolean = false;
+  private lastFoundCount: number = 0;
 
   private constructor() {
     super('FeedOrchestrator');
@@ -263,7 +278,137 @@ export class FeedOrchestrator extends Orchestrator {
     this.debugLogger.info('FeedOrchestrator', `Relay closed: ${relay}`);
   }
 
+  /**
+   * Start polling for new notes
+   * @param followingPubkeys - List of pubkeys to check for new notes
+   * @param lastLoadedTimestamp - Timestamp of the most recent note in timeline
+   * @param callback - Function to call when new notes are detected
+   * @param includeReplies - Whether to include reply notes
+   * @param delayMs - Delay before starting polling (default: 10000ms)
+   */
+  public startPolling(
+    followingPubkeys: string[],
+    lastLoadedTimestamp: number,
+    callback: NewNotesCallback,
+    includeReplies: boolean = false,
+    delayMs: number = 10000
+  ): void {
+    // Stop any existing polling
+    this.stopPolling();
+
+    this.pollingFollowingPubkeys = followingPubkeys;
+    this.lastCheckedTimestamp = lastLoadedTimestamp;
+    this.newNotesCallback = callback;
+    this.pollingIncludeReplies = includeReplies;
+
+    this.debugLogger.info(
+      'FeedOrchestrator',
+      `Starting polling in ${delayMs / 1000}s (includeReplies: ${includeReplies})`
+    );
+
+    // Start polling after delay
+    setTimeout(() => {
+      this.poll(); // First poll immediately after delay
+      this.pollingIntervalId = window.setInterval(() => this.poll(), this.pollingInterval);
+    }, delayMs);
+  }
+
+  /**
+   * Stop polling for new notes
+   */
+  public stopPolling(): void {
+    if (this.pollingIntervalId !== null) {
+      clearInterval(this.pollingIntervalId);
+      this.pollingIntervalId = null;
+      this.debugLogger.info('FeedOrchestrator', 'Polling stopped');
+    }
+  }
+
+  /**
+   * Reset last checked timestamp (call this when timeline is refreshed)
+   */
+  public resetPollingTimestamp(newTimestamp: number): void {
+    this.lastCheckedTimestamp = newTimestamp;
+    this.lastFoundCount = 0;
+    this.debugLogger.info(
+      'FeedOrchestrator',
+      `Polling timestamp reset to ${new Date(newTimestamp * 1000).toISOString()}`
+    );
+  }
+
+  /**
+   * Poll relays for new notes
+   */
+  private async poll(): Promise<void> {
+    if (!this.newNotesCallback || this.pollingFollowingPubkeys.length === 0) {
+      return;
+    }
+
+    try {
+      const relays = this.transport.getReadRelays();
+      if (relays.length === 0) {
+        this.debugLogger.warn('FeedOrchestrator', 'No read relays configured for polling');
+        return;
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+
+      // Query for new notes since last check
+      const filters = [{
+        kinds: [1, 6], // Text notes + reposts
+        authors: this.pollingFollowingPubkeys,
+        since: this.lastCheckedTimestamp + 1,
+        until: now,
+        limit: 100
+      }];
+
+      const events = await this.transport.fetch(relays, filters);
+
+      // Filter replies if needed
+      const filteredEvents = this.pollingIncludeReplies ? events : this.filterReplies(events);
+
+      if (filteredEvents.length > 0) {
+        // Only log when count changes - compact format
+        if (filteredEvents.length !== this.lastFoundCount) {
+          this.debugLogger.info(
+            'FeedOrchestrator',
+            `🔔 ${filteredEvents.length} new note${filteredEvents.length !== 1 ? 's' : ''} available`
+          );
+          this.lastFoundCount = filteredEvents.length;
+        }
+
+        // Extract unique author pubkeys (newest first, max 4)
+        const uniqueAuthors: string[] = [];
+        const seen = new Set<string>();
+
+        filteredEvents.sort((a, b) => b.created_at - a.created_at);
+
+        for (const event of filteredEvents) {
+          if (!seen.has(event.pubkey)) {
+            uniqueAuthors.push(event.pubkey);
+            seen.add(event.pubkey);
+            if (uniqueAuthors.length >= 4) break;
+          }
+        }
+
+        const info: NewNotesInfo = {
+          count: filteredEvents.length,
+          authorPubkeys: uniqueAuthors
+        };
+
+        // Notify callback
+        this.newNotesCallback(info);
+      } else {
+        this.lastFoundCount = 0;
+      }
+
+    } catch (error) {
+      this.debugLogger.error('FeedOrchestrator', `Polling error: ${error}`);
+    }
+  }
+
   public override destroy(): void {
+    this.stopPolling();
     this.callbacks.clear();
     this.eventCache.clear();
     super.destroy();
