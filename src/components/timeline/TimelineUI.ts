@@ -1,12 +1,11 @@
 /**
  * Timeline UI
  * Pure UI component for displaying timeline events
- * Uses TimelineLoader and LoadMore for data fetching
+ * Uses FeedOrchestrator for data fetching
  */
 
 import type { Event as NostrEvent } from 'nostr-tools';
-import { TimelineLoader } from '../../services/TimelineLoader';
-import { LoadMore } from '../../services/LoadMore';
+import { FeedOrchestrator } from '../../services/orchestration/FeedOrchestrator';
 import { UserService } from '../../services/UserService';
 import { NewNotesDetector, type NewNotesInfo } from '../../services/NewNotesDetector';
 import { NoteHeader } from '../ui/NoteHeader';
@@ -17,8 +16,7 @@ import { createNoteSkeleton } from '../../helpers/createNoteSkeleton';
 
 export class TimelineUI {
   private element: HTMLElement;
-  private timelineLoader: TimelineLoader;
-  private loadMore: LoadMore;
+  private feedOrchestrator: FeedOrchestrator;
   private userService: UserService;
   private newNotesDetector: NewNotesDetector;
   private events: NostrEvent[] = [];
@@ -34,8 +32,7 @@ export class TimelineUI {
 
   constructor(userPubkey: string) {
     this.userPubkey = userPubkey;
-    this.timelineLoader = TimelineLoader.getInstance();
-    this.loadMore = LoadMore.getInstance();
+    this.feedOrchestrator = FeedOrchestrator.getInstance();
     this.userService = UserService.getInstance();
     this.newNotesDetector = NewNotesDetector.getInstance();
     this.element = this.createElement();
@@ -156,11 +153,11 @@ export class TimelineUI {
         return;
       }
 
-      // Use TimelineLoader service (no userPubkey needed since user not in following list)
-      const result = await this.timelineLoader.loadInitialTimeline({
-        userPubkey: '', // Empty since user not included in timeline
+      // Use FeedOrchestrator for loading
+      const result = await this.feedOrchestrator.loadInitialFeed({
         followingPubkeys: this.followingPubkeys,
-        includeReplies: this.includeReplies
+        includeReplies: this.includeReplies,
+        timeWindowHours: 1
       });
 
       this.events = result.events;
@@ -171,7 +168,7 @@ export class TimelineUI {
 
       this.hasMore = result.hasMore;
 
-      console.log(`📱 TIMELINE UI: Loaded ${result.events.length} events from ${result.relaysUsed} relays`);
+      console.log(`📱 TIMELINE UI: Loaded ${result.events.length} events`);
 
       // Start polling for new notes after 10 seconds
       this.startNewNotesPolling();
@@ -249,12 +246,12 @@ export class TimelineUI {
 
       console.log(`📅 Loading events older than: ${new Date(oldestEvent.created_at * 1000).toISOString()}`);
 
-      // Use LoadMore service (no userPubkey needed since user not in following list)
-      const result = await this.loadMore.loadMoreEvents({
-        userPubkey: '', // Empty since user not included in timeline
+      // Use FeedOrchestrator for load more
+      const result = await this.feedOrchestrator.loadMore({
         followingPubkeys: this.followingPubkeys,
-        oldestEventTimestamp: oldestEvent.created_at,
-        includeReplies: this.includeReplies
+        includeReplies: this.includeReplies,
+        until: oldestEvent.created_at,
+        timeWindowHours: 3
       });
 
       // Filter out duplicates and add new events
