@@ -349,7 +349,7 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 - ✅ Each reply uses NoteHeader component (consistency)
 - **Tested:** SNV shows replies (styling pending, functionality works)
 
-**Phase 6: ProfileOrchestrator ✅ COMPLETED**
+**Phase 6: ProfileOrchestrator ✅ COMPLETED (Commit: 5615ba6)**
 - ✅ Created `src/services/orchestration/ProfileOrchestrator.ts`
 - ✅ Migrated UserProfileService to use ProfileOrchestrator (was using UserService directly)
 - ✅ Implements fetchProfile() and fetchMultipleProfiles() via NostrTransport
