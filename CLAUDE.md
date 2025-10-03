@@ -302,7 +302,7 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 ## 🏗️ ORCHESTRATOR ARCHITECTURE - Implementation Progress (2025-10-03)
 
 **Branch:** `orchestrator`
-**Status:** In Progress - Phase 3 Complete
+**Status:** In Progress - Phase 4 Complete
 **Goal:** Enterprise-ready Nostr event architecture before Write-Events/DMs/Notifications
 
 ---
@@ -332,14 +332,13 @@ nostr:naddr1qvzqqqr4gupzq9eemymaerqvwdc25f6ctyuvzx0zt3qld3zp5hf5cmfc2qlrzdh0qyv8
 - ✅ Architecture: TimelineUI → FeedOrchestrator → NostrTransport → SimplePool
 - **Tested:** Timeline loads, infinite scroll works, refresh works
 
-**Phase 4: ReactionsOrchestrator (2-3h, migrate ISL) - IN PROGRESS**
-- TODO: Create `src/services/orchestration/ReactionsOrchestrator.ts`
-- TODO: Migrate InteractionStatsService logic into Orchestrator
-- TODO: ISL uses ReactionsOrchestrator instead of direct subscription
-- TODO: Migrate NewNotesDetector to FeedOrchestrator
-- TODO: Migrate UserService to use Orchestrator
-- Test: SNV ISL shows live updates
-- **Commit:** TBD
+**Phase 4: ReactionsOrchestrator ✅ COMPLETED (Commit: c701c58)**
+- ✅ Created `src/services/orchestration/ReactionsOrchestrator.ts`
+- ✅ Migrated InteractionStatsService to use ReactionsOrchestrator (wrapper)
+- ✅ ISL uses ReactionsOrchestrator for all stats (reactions, reposts, replies, zaps)
+- ✅ Fixed Zap counting: parse bolt11 invoices for sats amounts (was counting events)
+- ✅ Fixed extractLinks: remove trailing punctuation from URLs
+- **Tested:** ISL numbers accurate (matches Nostur, better than Jumble)
 
 **Phase 5: ThreadOrchestrator (2-3h, SNV replies)**
 - Create `src/services/orchestration/ThreadOrchestrator.ts`
